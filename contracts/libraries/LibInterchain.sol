@@ -89,8 +89,8 @@ library LibInterchain {
         }
 
         status = ok ? IRango.CrossChainOperationStatus.Succeeded : IRango.CrossChainOperationStatus.RefundInDestination;
-        IRangoMessageReceiver.ProcessStatus dAppStatus = ok 
-            ? IRangoMessageReceiver.ProcessStatus.SUCCESS 
+        IRangoMessageReceiver.ProcessStatus dAppStatus = ok
+            ? IRangoMessageReceiver.ProcessStatus.SUCCESS
             : IRangoMessageReceiver.ProcessStatus.REFUND_IN_DESTINATION;
 
         _sendTokenWithDApp(receivedToken, dstAmount, m.recipient, m.dAppMessage, m.dAppDestContract, dAppStatus);
@@ -123,6 +123,9 @@ library LibInterchain {
 
         LibSwapper.approve(action.path[0], action.dexAddress, _amount);
 
+        address toToken = action.path[action.path.length - 1];
+        uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
+
         try
             IUniswapV2(action.dexAddress).swapExactTokensForTokens(
                 _amount,
@@ -131,9 +134,12 @@ library LibInterchain {
                 address(this),
                 action.deadline
             )
-        returns (uint256[] memory amounts) {
+        returns (uint256[] memory) {
             emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "");
-            return (true, amounts[amounts.length - 1], action.path[action.path.length - 1]);
+            // Note: instead of using return amounts of swapExactTokensForTokens,
+            //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees
+            uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+            return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "Uniswap-V2 call failed");
             return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
@@ -165,6 +171,7 @@ library LibInterchain {
         }
 
         LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
+        uint toBalanceBefore = LibSwapper.getBalanceOf(action.tokenOut);
 
         try
             IUniswapV3(action.dexAddress).exactInputSingle(IUniswapV3.ExactInputSingleParams({
@@ -177,9 +184,12 @@ library LibInterchain {
                 amountOutMinimum : action.amountOutMinimum,
                 sqrtPriceLimitX96 : action.sqrtPriceLimitX96
             }))
-        returns (uint amountOut) {
+        returns (uint) {
             emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
-            return (true, amountOut, action.tokenOut);
+            // Note: instead of using return amounts of exactInputSingle,
+            //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
+            uint toBalanceAfter = LibSwapper.getBalanceOf(action.tokenOut);
+            return (true, toBalanceAfter - toBalanceBefore, action.tokenOut);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
             return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
