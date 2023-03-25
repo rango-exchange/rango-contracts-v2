@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.16;
 
 import "../libraries/LibSwapper.sol";
@@ -59,7 +59,7 @@ interface IRangoSynapse {
         uint256 swapDeadline
     );
 
-    function synapseSwapAndBridgeBridge(
+    function synapseSwapAndBridge(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
         IRangoSynapse.SynapseBridgeRequest memory bridgeRequest

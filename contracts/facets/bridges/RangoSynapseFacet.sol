@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.16;
 
 import "../../interfaces/ISynapseRouter.sol";
@@ -39,7 +39,7 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
     /// @param request The general swap request containing from/to token and fee/affiliate rewards
     /// @param calls The list of DEX calls, if this list is empty, it means that there is no DEX call and we are only bridging
     /// @param bridgeRequest required data for the bridging step, including the destination chain and recipient wallet address
-    function synapseSwapAndBridgeBridge(
+    function synapseSwapAndBridge(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
         IRangoSynapse.SynapseBridgeRequest memory bridgeRequest

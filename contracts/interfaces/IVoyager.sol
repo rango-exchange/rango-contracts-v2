@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.16;
 
 /// @title The root contract that handles Rango's interaction with Router bridge
