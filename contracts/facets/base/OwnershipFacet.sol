@@ -26,6 +26,13 @@ contract OwnershipFacet is IERC173 {
 
     /// External Methods ///
 
+    /// @notice Explicitly burn ownership, this causes no more contracts to be whitelisted and new facets cannot be added.
+    function burnOwnership() external {
+        LibDiamond.enforceIsContractOwner();
+        Storage storage s = getStorage();
+        LibDiamond.setContractOwner(address(0));
+    }
+
     /// @notice Initiates transfer of ownership to a new address
     /// @param _newOwner the address to transfer ownership to
     function transferOwnership(address _newOwner) external override {
