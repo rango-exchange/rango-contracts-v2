@@ -137,7 +137,7 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
             emit ArbitrumBridgeRouterCalled(s.inbox, request.receiver, fromToken, amount);
         } else {
             address gatewayAddr = IArbitrumBridgeRouter(s.router).getGateway(fromToken);
-            LibSwapper.approve(fromToken, gatewayAddr, amount);
+            LibSwapper.approveMax(fromToken, gatewayAddr, amount);
             IArbitrumBridgeRouter(s.router).outboundTransfer{value : request.cost}(
                 fromToken,
                 request.receiver,

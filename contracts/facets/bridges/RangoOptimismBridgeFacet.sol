@@ -139,7 +139,7 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
         if (fromToken == LibSwapper.ETH) {
             bridge.depositETHTo{ value: amount }(request.receiver, request.l2Gas, "");
         } else {
-            LibSwapper.approve(fromToken, bridgeAddress, amount);
+            LibSwapper.approveMax(fromToken, bridgeAddress, amount);
 
             if (request.isSynth) {
                 bridge.depositTo(request.receiver, amount);

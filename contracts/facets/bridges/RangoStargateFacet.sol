@@ -155,7 +155,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         require(router != LibSwapper.ETH, "Stargate router address not set");
 
         if (fromToken != LibSwapper.ETH) {
-            LibSwapper.approve(fromToken, router, inputAmount);
+            LibSwapper.approveMax(fromToken, router, inputAmount);
         }
 
         bytes memory payload = request.bridgeType == StargateBridgeType.TRANSFER_WITH_MESSAGE

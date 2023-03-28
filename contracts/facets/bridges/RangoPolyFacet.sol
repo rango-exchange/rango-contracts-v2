@@ -141,7 +141,7 @@ contract RangoPolyFacet is IRango, ReentrancyGuard, IRangoPoly {
                 request.id
             );
         } else {
-            LibSwapper.approve(token, s.polyWrapperAddress, amount);
+            LibSwapper.approveMax(token, s.polyWrapperAddress, amount);
             IPolyBridge(s.polyWrapperAddress).lock{value : request.fee}(
                 token,
                 dstChainId,

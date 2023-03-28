@@ -110,7 +110,7 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);
         if (token != LibSwapper.ETH) {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amountWithFee);
-            LibSwapper.approve(token, request.multichainRouter, amount);
+            LibSwapper.approveMax(token, request.multichainRouter, amount);
         } else {
             require(msg.value >= amountWithFee);
         }
@@ -163,7 +163,7 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         require(s.multichainRouters[request.multichainRouter], 'Requested router address not whitelisted');
 
         if (request.actionType != MultichainActionType.OUT_NATIVE) {
-            LibSwapper.approve(fromToken, request.multichainRouter, inputAmount);
+            LibSwapper.approveMax(fromToken, request.multichainRouter, inputAmount);
         } else {
             require(fromToken == LibSwapper.ETH, 'invalid token');
         }
@@ -191,7 +191,7 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         require(s.multichainRouters[request.multichainRouter], 'router not allowed');
 
         if (request.actionType != MultichainActionType.OUT_NATIVE) {
-            LibSwapper.approve(fromToken, request.multichainRouter, inputAmount);
+            LibSwapper.approveMax(fromToken, request.multichainRouter, inputAmount);
         } else {
             require(fromToken == LibSwapper.ETH, 'invalid token');
         }

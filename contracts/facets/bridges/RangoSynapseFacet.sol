@@ -106,7 +106,7 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
         require(inputAmount > 0, "Invalid amount");
 
         if (token != LibSwapper.ETH) {
-            LibSwapper.approve(token, request.router, inputAmount);
+            LibSwapper.approveMax(token, request.router, inputAmount);
         }
 
         ISynapseRouter router = ISynapseRouter(request.router);

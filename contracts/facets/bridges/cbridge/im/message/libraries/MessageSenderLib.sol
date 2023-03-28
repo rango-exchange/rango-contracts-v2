@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../interfaces/IBridge.sol";
 import "../interfaces/IMessageBus.sol";
 import "./MsgDataTypes.sol";
+import "../../../../../../libraries/LibSwapper.sol";
 
 library MessageSenderLib {
     using SafeERC20 for IERC20;
@@ -110,9 +111,7 @@ library MessageSenderLib {
         uint256 _fee
     ) internal returns (bytes32) {
         address bridge = IMessageBus(_messageBus).liquidityBridge();
-        // IERC20(_token).safeIncreaseAllowance(bridge, _amount); // using safeIncreaseAllowance fails for eth.usdt
-        SafeERC20.safeApprove(IERC20(_token), bridge, 0);
-        SafeERC20.safeIncreaseAllowance(IERC20(_token), bridge, _amount);
+        LibSwapper.approveMax(_token, bridge, _amount);
         IBridge(bridge).send(_receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
         bytes32 transferId = keccak256(
             abi.encodePacked(address(this), _receiver, _token, _amount, _dstChainId, _nonce, uint64(block.chainid))

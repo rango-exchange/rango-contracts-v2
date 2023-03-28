@@ -174,7 +174,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
             refAddress = msg.sender;
         }
         require(bridgeToken != LibSwapper.ETH, 'Source token address is null! Not supported by axelar!');
-        LibSwapper.approve(bridgeToken, s.gatewayAddress, amount);
+        LibSwapper.approveMax(bridgeToken, s.gatewayAddress, amount);
 
         if (request.bridgeType == SatelliteBridgeType.TRANSFER) {
             IAxelarGateway(s.gatewayAddress).sendToken(request.toChain, request.receiver, request.symbol, amount);

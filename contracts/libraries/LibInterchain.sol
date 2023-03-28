@@ -121,7 +121,7 @@ library LibInterchain {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
-        LibSwapper.approve(action.path[0], action.dexAddress, _amount);
+        LibSwapper.approveMax(action.path[0], action.dexAddress, _amount);
 
         address toToken = action.path[action.path.length - 1];
         uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
@@ -170,7 +170,7 @@ library LibInterchain {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
-        LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
+        LibSwapper.approveMax(action.tokenIn, action.dexAddress, _amount);
         uint toBalanceBefore = LibSwapper.getBalanceOf(action.tokenOut);
 
         try
@@ -229,7 +229,7 @@ library LibInterchain {
             return (false, _amount, _token);
 
         if (sourceToken != LibSwapper.ETH)
-            LibSwapper.approve(sourceToken, action.spender, _amount);
+            LibSwapper.approveMax(sourceToken, action.spender, _amount);
 
         uint value = sourceToken == LibSwapper.ETH ? _amount : 0;
         uint toBalanceBefore = LibSwapper.getBalanceOf(_message.toToken);

@@ -143,11 +143,11 @@ contract RangoVoyagerFacet is IRango, ReentrancyGuard, IRangoVoyager {
             "Fee is only acceptable in native token in current version");
         uint approveAmount = request.feeAmount;
         if (fromToken != LibSwapper.ETH) {
-            LibSwapper.approve(fromToken, s.reserveHandlerAddress, amount);
+            LibSwapper.approveMax(fromToken, s.reserveHandlerAddress, amount);
         } else {
             approveAmount = amount + approveAmount;
         }
-        LibSwapper.approve(request.feeTokenAddress, s.reserveHandlerAddress, approveAmount);
+        LibSwapper.approveMax(request.feeTokenAddress, s.reserveHandlerAddress, approveAmount);
 
         IVoyager voyager = IVoyager(s.routerBridgeAddress);
 

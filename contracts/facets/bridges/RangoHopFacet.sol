@@ -81,7 +81,7 @@ contract RangoHopFacet is IRango, ReentrancyGuard, IRangoHop {
     ) external payable nonReentrant {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         if (request.toToken != LibSwapper.ETH) 
-            LibSwapper.approve(request.toToken, bridgeRequest.bridgeAddress, out);
+            LibSwapper.approveMax(request.toToken, bridgeRequest.bridgeAddress, out);
         doHopBridge(bridgeRequest, request.toToken, out);
 
         // event emission
@@ -111,7 +111,7 @@ contract RangoHopFacet is IRango, ReentrancyGuard, IRangoHop {
             require(msg.value >= amountWithFee, "Insufficient ETH sent for bridging");
         } else {
             SafeERC20.safeTransferFrom(IERC20(bridgeRequest.token), msg.sender, address(this), amountWithFee);
-            LibSwapper.approve(bridgeRequest.token, request.bridgeAddress, bridgeRequest.amount);
+            LibSwapper.approveMax(bridgeRequest.token, request.bridgeAddress, bridgeRequest.amount);
         }
 
         LibSwapper.collectFees(bridgeRequest);

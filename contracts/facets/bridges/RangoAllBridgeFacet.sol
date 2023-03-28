@@ -111,7 +111,7 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
 
         address poolAddress = bridge.pools(tokenAddressLeftPadded);
         require(poolAddress != LibSwapper.ETH, 'PoolAddress does not exist');
-        LibSwapper.approve(token, poolAddress, amount);
+        LibSwapper.approveMax(token, poolAddress, amount);
 
         bridge.swapAndBridge{value : request.transferFee}(
             tokenAddressLeftPadded,

@@ -205,7 +205,7 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         address cBridgeAddress = getRangoCBridgeMiddlewareStorage().cBridgeAddress;
         require(cBridgeAddress != LibSwapper.ETH, 'cBridge address not set');
         if (token != LibSwapper.ETH) {
-            LibSwapper.approve(token, cBridgeAddress, amount);
+            LibSwapper.approveMax(token, cBridgeAddress, amount);
             IBridge(cBridgeAddress).send(receiver, token, amount, dstChainId, nonce, maxSlippage);
         } else {
             IBridge(cBridgeAddress).sendNative{value : amount}(receiver, amount, dstChainId, nonce, maxSlippage);
@@ -242,7 +242,7 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         require(imMessage.dstChainId == dstChainId, 'dstChainId and imMessage.dstChainId do not match');
 
         if (fromToken != LibSwapper.ETH)
-            LibSwapper.approve(fromToken, cBridgeAddress, inputAmount);
+            LibSwapper.approveMax(fromToken, cBridgeAddress, inputAmount);
 
         bytes memory message = abi.encode(imMessage);
 

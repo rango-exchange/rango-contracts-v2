@@ -40,7 +40,7 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
     ) external payable nonReentrant {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         if (request.toToken != LibSwapper.ETH) {
-            LibSwapper.approve(request.toToken, tcRouter, out);
+            LibSwapper.approveMax(request.toToken, tcRouter, out);
         }
 
         doSwapInToThorchain(
@@ -85,7 +85,7 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
             require(msg.value >= amountWithFee, "insufficient ETH sent");
         } else {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amountWithFee);
-            LibSwapper.approve(token, tcRouter, amount);
+            LibSwapper.approveMax(token, tcRouter, amount);
         }
         LibSwapper.collectFees(request);
 

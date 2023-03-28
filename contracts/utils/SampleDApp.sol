@@ -36,6 +36,7 @@ contract SampleDApp is IRangoMessageReceiver {
             require(msg.value == amount, "Insufficient Eth");
         } else {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amount);
+            SafeERC20.safeApprove(IERC20(token), rangoContractToCall, 0);
             SafeERC20.safeApprove(IERC20(token), rangoContractToCall, amount);
         }
 

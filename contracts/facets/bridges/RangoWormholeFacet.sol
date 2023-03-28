@@ -142,7 +142,7 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
                     request.imMessage
                 );
             } else {
-                LibSwapper.approve(token, s.wormholeRouter, amount);
+                LibSwapper.approveMax(token, s.wormholeRouter, amount);
                 IWormholeRouter(s.wormholeRouter).transferTokensWithPayload(
                     token,
                     amount,
@@ -161,7 +161,7 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
                     request.nonce
                 );
             } else {
-                LibSwapper.approve(token, s.wormholeRouter, amount + request.fee);
+                LibSwapper.approveMax(token, s.wormholeRouter, amount + request.fee);
                 IWormholeRouter(s.wormholeRouter).transferTokens(
                     token,
                     amount + request.fee,

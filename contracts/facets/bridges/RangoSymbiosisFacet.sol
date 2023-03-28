@@ -129,7 +129,7 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
         require(s.symbiosisMetaRouter != LibSwapper.ETH, 'Symbiosis meta router address not set');
         require(s.symbiosisMetaRouterGateway != LibSwapper.ETH, 'Symbiosis meta router gateway address not set');
         require(token != LibSwapper.ETH, 'Symbiosis contract handles only ERC20 tokens');
-        LibSwapper.approve(token, s.symbiosisMetaRouterGateway, amount);
+        LibSwapper.approveMax(token, s.symbiosisMetaRouterGateway, amount);
 
         MetaRouteTransaction memory transactionData = request.metaRouteTransaction;
         bytes4 sig = bytes4(request.metaRouteTransaction.otherSideCalldata[:4]);

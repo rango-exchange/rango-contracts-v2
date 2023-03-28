@@ -318,7 +318,7 @@ library LibSwapper {
             tmpSwapFromToken = calls[i].swapFromToken;
             bool isTokenNative = tmpSwapFromToken == ETH;
             if (isTokenNative == false)
-                approve(tmpSwapFromToken, calls[i].spender, calls[i].amount);
+                approveMax(tmpSwapFromToken, calls[i].spender, calls[i].amount);
 
             (bool success, bytes memory ret) = isTokenNative
             ? calls[i].target.call{value : calls[i].amount}(calls[i].callData)
@@ -335,11 +335,26 @@ library LibSwapper {
 
     /// @notice Approves an ERC20 token to a contract to transfer from the current contract
     /// @param token The address of an ERC20 token
-    /// @param to The contract address that should be approved
+    /// @param spender The contract address that should be approved
     /// @param value The amount that should be approved
-    function approve(address token, address to, uint value) internal {
-        SafeERC20.safeApprove(IERC20(token), to, 0);
-        SafeERC20.safeIncreaseAllowance(IERC20(token), to, value);
+    function approve(address token, address spender, uint value) internal {
+        SafeERC20.safeApprove(IERC20(token), spender, 0);
+        SafeERC20.safeIncreaseAllowance(IERC20(token), spender, value);
+    }
+
+    /// @notice Approves an ERC20 token to a contract to transfer from the current contract, approves for inf value
+    /// @param token The address of an ERC20 token
+    /// @param spender The contract address that should be approved
+    /// @param value The desired allowance. If current allowance is less than this value, infinite allowance will be given
+    function approveMax(address token, address spender, uint value) internal {
+        uint256 currentAllowance = IERC20(token).allowance(address(this), spender);
+        if (currentAllowance < value) {
+            if (currentAllowance != 0) {
+                // We set allowance to 0 if not already. tokens such as USDT require zero allowance first.
+                SafeERC20.safeApprove(IERC20(token), spender, 0);
+            }
+            SafeERC20.safeIncreaseAllowance(IERC20(token), spender, type(uint256).max);
+        }
     }
 
     function _sendToken(address _token, uint256 _amount, address _receiver) internal {

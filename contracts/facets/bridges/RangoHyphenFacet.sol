@@ -47,7 +47,7 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         HyphenStorage storage s = getHyphenStorage();
         if (request.toToken != LibSwapper.ETH) 
-            LibSwapper.approve(request.toToken, s.hyphenAddress, out);
+            LibSwapper.approveMax(request.toToken, s.hyphenAddress, out);
         doHyphenBridge(bridgeRequest, request.toToken, out);
 
         // event emission
@@ -77,7 +77,7 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
             require(msg.value >= amountWithFee, "Insufficient ETH sent for bridging");
         } else {
             SafeERC20.safeTransferFrom(IERC20(bridgeRequest.token), msg.sender, address(this), amountWithFee);
-            LibSwapper.approve(bridgeRequest.token, s.hyphenAddress, bridgeRequest.amount);
+            LibSwapper.approveMax(bridgeRequest.token, s.hyphenAddress, bridgeRequest.amount);
         }
         LibSwapper.collectFees(bridgeRequest);
         doHyphenBridge(request, bridgeRequest.token, bridgeRequest.amount);
