@@ -58,3 +58,8 @@ interface IAnycallProxy {
         bytes calldata data
     ) external returns (bool success, bytes memory result);
 }
+
+interface CustomMultichainToken {
+    function transfer(address toAddress, uint256 amount) external;
+    function Swapout(uint256 amount,address destination) external;
+}

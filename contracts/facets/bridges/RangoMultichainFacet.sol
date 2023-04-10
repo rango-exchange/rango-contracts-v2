@@ -110,7 +110,6 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);
         if (token != LibSwapper.ETH) {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amountWithFee);
-            LibSwapper.approveMax(token, request.multichainRouter, amount);
         } else {
             require(msg.value >= amountWithFee);
         }
@@ -159,16 +158,25 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         address fromToken,
         uint inputAmount
     ) internal {
+        if (request.actionType == MultichainActionType.TOKEN_SWAP_OUT) {
+            CustomMultichainToken(fromToken).Swapout(inputAmount, request.receiverAddress);
+            return;
+        } else if (request.actionType == MultichainActionType.TOKEN_TRANSFER) {
+            CustomMultichainToken(fromToken).transfer(request.receiverAddress, inputAmount);
+            return;
+        }
+
+        address routerAddr = request.multichainRouter;
         MultichainStorage storage s = getMultichainStorage();
-        require(s.multichainRouters[request.multichainRouter], 'Requested router address not whitelisted');
+        require(s.multichainRouters[routerAddr], 'Requested router address not whitelisted');
 
         if (request.actionType != MultichainActionType.OUT_NATIVE) {
-            LibSwapper.approveMax(fromToken, request.multichainRouter, inputAmount);
+            LibSwapper.approveMax(fromToken, routerAddr, inputAmount);
         } else {
             require(fromToken == LibSwapper.ETH, 'invalid token');
         }
 
-        IMultichainRouter router = IMultichainRouter(request.multichainRouter);
+        IMultichainRouter router = IMultichainRouter(routerAddr);
 
         if (request.actionType == MultichainActionType.OUT) {
             router.anySwapOut(request.underlyingToken, request.receiverAddress, inputAmount, request.receiverChainID);

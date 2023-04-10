@@ -6,7 +6,7 @@ import "../libraries/LibSwapper.sol";
 /// @title An interface to RangoMultichain.sol contract to improve type hinting
 /// @author Uchiha Sasuke
 interface IRangoMultichain {
-    enum MultichainActionType {OUT, OUT_UNDERLYING, OUT_NATIVE}
+    enum MultichainActionType {OUT, OUT_UNDERLYING, OUT_NATIVE, TOKEN_SWAP_OUT, TOKEN_TRANSFER}
     enum MultichainBridgeType {TRANSFER, TRANSFER_WITH_MESSAGE}
 
     /// @notice The request object for MultichainOrg bridge call
