@@ -75,7 +75,7 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
             42161,
             false,
             false,
-            uint8(BridgeType.Hop),
+            uint8(BridgeType.ArbitrumBridge),
             request.dAppTag
         );
     }
