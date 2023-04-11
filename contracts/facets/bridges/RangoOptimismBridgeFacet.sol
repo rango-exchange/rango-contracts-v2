@@ -142,6 +142,7 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
             LibSwapper.approveMax(fromToken, bridgeAddress, amount);
 
             if (request.isSynth) {
+                require(s.tokenToBridgeAddresses[fromToken] != address(0), "bridge not defined");
                 bridge.depositTo(request.receiver, amount);
             } else {
                 bridge.depositERC20To(
