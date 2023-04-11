@@ -4,20 +4,46 @@ pragma solidity 0.8.16;
 import "../interfaces/IRangoMessageReceiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 
 /// @title Sample dApp contract
 /// @author George
-/// @notice This sample contract that can send message through Rango. In destination it just receives tokens and transfers it to user.
-contract SampleDApp is IRangoMessageReceiver {
+/// @notice This sample contract that can send message through Rango. In destination it just receives tokens and transfers it to user. This contract is just for demonstration and is not meant to be used in production.
+contract SampleDApp is IRangoMessageReceiver, ReentrancyGuard {
 
     /// owner address used for refunds in case you got tokens stuck in the contract
     address owner;
+    /// whitelist of which contracts can call handleRangoMessage function.
+    mapping(address => bool) whitelistedCallers;
+
+    event WhitelistedCallersAdded(address[] callers);
+    event WhitelistedCallersRemoved(address[] callers);
+
     constructor(){owner = msg.sender;}
     modifier onlyOwner(){
         require(msg.sender == owner, "Can be called only by owner");
         _;
     }
+    modifier onlyWhitelistCaller(){
+        require(whitelistedCallers[msg.sender] == true, "Can be called only by whitelisted contract");
+        _;
+    }
+
+    function addWhitelistCallers(address[] calldata callers) external onlyOwner {
+        for (uint256 i = 0; i < callers.length; i++) {
+            whitelistedCallers[callers[i]] = true;
+        }
+        emit WhitelistedCallersAdded(callers);
+    }
+
+    function removeWhitelistCallers(address[] calldata callers) external onlyOwner {
+        for (uint256 i = 0; i < callers.length; i++) {
+            whitelistedCallers[callers[i]] = false;
+        }
+        emit WhitelistedCallersRemoved(callers);
+    }
+
 
     /// @notice a simple struct used as message
     struct SimpleTokenMessage {
@@ -29,7 +55,7 @@ contract SampleDApp is IRangoMessageReceiver {
         address rangoContractToCall,
         address token,
         uint amount,
-        bytes calldata rangoCallData) external payable {
+        bytes calldata rangoCallData) external payable nonReentrant {
 
         // transfer tokens from user
         if (token == address(0)) {
@@ -45,12 +71,13 @@ contract SampleDApp is IRangoMessageReceiver {
 
     }
 
+    // @dev this contract is called in the destination chain
     function handleRangoMessage(
         address token,
         uint amount,
         ProcessStatus status,
         bytes memory message
-    ) external {
+    ) external onlyWhitelistCaller nonReentrant {
         SimpleTokenMessage memory m = abi.decode((message), (SimpleTokenMessage));
 
         /// decide upon status or contents of the message
