@@ -121,7 +121,7 @@ library LibInterchain {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
-        LibSwapper.approveMax(action.path[0], action.dexAddress, _amount);
+        LibSwapper.approve(action.path[0], action.dexAddress, _amount);
 
         address toToken = action.path[action.path.length - 1];
         uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
@@ -139,9 +139,11 @@ library LibInterchain {
             // Note: instead of using return amounts of swapExactTokensForTokens,
             //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees
             uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+            SafeERC20.safeApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "Uniswap-V2 call failed");
+            SafeERC20.safeApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
         }
     }
@@ -170,7 +172,7 @@ library LibInterchain {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
-        LibSwapper.approveMax(action.tokenIn, action.dexAddress, _amount);
+        LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
         uint toBalanceBefore = LibSwapper.getBalanceOf(action.tokenOut);
 
         try
@@ -189,9 +191,11 @@ library LibInterchain {
             // Note: instead of using return amounts of exactInputSingle,
             //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
             uint toBalanceAfter = LibSwapper.getBalanceOf(action.tokenOut);
+            SafeERC20.safeApprove(IERC20(action.tokenIn), action.dexAddress, 0);
             return (true, toBalanceAfter - toBalanceBefore, action.tokenOut);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
+            SafeERC20.safeApprove(IERC20(action.tokenIn), action.dexAddress, 0);
             return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
         }
     }
@@ -229,7 +233,7 @@ library LibInterchain {
             return (false, _amount, _token);
 
         if (sourceToken != LibSwapper.ETH)
-            LibSwapper.approveMax(sourceToken, action.spender, _amount);
+            LibSwapper.approve(sourceToken, action.spender, _amount);
 
         uint value = sourceToken == LibSwapper.ETH ? _amount : 0;
         uint toBalanceBefore = LibSwapper.getBalanceOf(_message.toToken);
@@ -239,9 +243,13 @@ library LibInterchain {
             emit ActionDone(Interchain.ActionType.CALL, action.target, true, "");
 
             uint toBalanceAfter = LibSwapper.getBalanceOf(_message.toToken);
+            if (sourceToken != LibSwapper.ETH)
+                SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
             return (true, toBalanceAfter - toBalanceBefore, _message.toToken);
         } else {
             emit ActionDone(Interchain.ActionType.CALL, action.target, false, LibSwapper._getRevertMsg(ret));
+            if (sourceToken != LibSwapper.ETH)
+                SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
             return (false, _amount, _token);
         }
     }
@@ -306,7 +314,7 @@ library LibInterchain {
 
         return (true, _amount, LibSwapper.ETH);
     }
-    
+
     /// @notice An internal function to send a token from the current contract to another contract or wallet
     /// @dev This function also can convert WETH to ETH before sending if _withdraw flat is set to true
     /// @dev To send native token _nativeOut param should be set to true, otherwise we assume it's an ERC20 transfer
