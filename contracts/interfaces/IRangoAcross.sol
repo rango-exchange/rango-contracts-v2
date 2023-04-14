@@ -8,18 +8,20 @@ import "./IRango.sol";
 /// @author Uchiha Sasuke
 interface IRangoAcross {
     /// @notice The request object for Across bridge call
-    /// @param spokePoolAddress The address of Across spoke pool that deposit should be done to
     /// @param recipient Address to receive funds at on destination chain.
     /// @param originToken Token to lock into this contract to initiate deposit. Can be address(0)
     /// @param destinationChainId Denotes network where user will receive funds from SpokePool by a relayer.
     /// @param relayerFeePct % of deposit amount taken out to incentivize a fast relayer.
     /// @param quoteTimestamp Timestamp used by relayers to compute this deposit's realizedLPFeePct which is paid to LP pool on HubPool.
+    /// @param message message that will be passed to destination chain. Can be empty.
+    /// @param maxCount used as a form of front-running protection. If we pass maxCount of 90 and when the tx is submitted the spoke has count of 100, the tx will revert. Default can be set to type(uint).max
     struct AcrossBridgeRequest {
-        address spokePoolAddress;
         address recipient;
         uint256 destinationChainId;
         uint64 relayerFeePct;
         uint32 quoteTimestamp;
+        bytes message;
+        uint256 maxCount;
     }
 
     function acrossSwapAndBridge(
