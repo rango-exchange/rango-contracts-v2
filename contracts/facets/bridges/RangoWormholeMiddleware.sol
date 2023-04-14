@@ -70,6 +70,21 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
         updateRefundHashesInternal(hashes, booleans, addresses);
     }
 
+    /// @dev only callable by owner.
+    function RefundWithPayloadAndSend(
+        bytes calldata vaas,
+        address expectedToken,
+        address refundAddr,
+        uint amount
+    ) external nonReentrant onlyOwner {
+        RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
+        IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);
+        whTokenBridge.completeTransferWithPayload(vaas);
+        SafeERC20.safeTransfer(IERC20(expectedToken), refundAddr, amount);
+        bytes32 refundHash = keccak256(vaas);
+        emit PayloadHashRefunded(refundHash, refundAddr);
+    }
+
     /// @param expectedToken the token that will be received from wormhole.
     /// @dev expected token be extracted from vaas but we pass it as argument to save gas. (see extractTokenAddressForVaas)
     function completeTransferWithPayload(
@@ -79,18 +94,19 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
     {
         RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
         IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);
+        WormholeBridgeStructs.TransferWithPayload memory transfer;
         /// check for refund
         bytes32 refundHash = keccak256(vaas);
         if (s.refundHashes[refundHash] == true) {
             // transfer tokens to this contract
-            bytes memory payloadRefund = whTokenBridge.completeTransferWithPayload(vaas);
-            WormholeBridgeStructs.TransferWithPayload memory transferRefund = whTokenBridge.parseTransferWithPayload(payloadRefund);
+            transfer = whTokenBridge.parseTransferWithPayload(whTokenBridge.completeTransferWithPayload(vaas));
+            require(expectedToken == extractTokenAddressFromTransferPayload(transfer));
             address refundAddr = s.refundHashAddresses[refundHash];
             address requestId = LibSwapper.ETH;
             address originalSender = LibSwapper.ETH;
             uint16 dAppTag;
             if (refundAddr == address(0)) {
-                Interchain.RangoInterChainMessage memory im = abi.decode((transferRefund.payload), (Interchain.RangoInterChainMessage));
+                Interchain.RangoInterChainMessage memory im = abi.decode((transfer.payload), (Interchain.RangoInterChainMessage));
                 refundAddr = im.recipient;
                 requestId = im.requestId;
                 originalSender = im.originalSender;
@@ -100,7 +116,7 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
 
             (,bytes memory queriedDecimalsRefund) = expectedToken.staticcall(abi.encodeWithSignature("decimals()"));
             uint8 decimalsRefund = abi.decode(queriedDecimalsRefund, (uint8));
-            uint256 exactAmountRefund = deNormalizeAmount(transferRefund.amount, decimalsRefund);
+            uint256 exactAmountRefund = deNormalizeAmount(transfer.amount, decimalsRefund);
             SafeERC20.safeTransfer(IERC20(expectedToken), refundAddr, exactAmountRefund);
             s.refundHashes[refundHash] = false;
             emit RefundHashStateUpdated(refundHash, false, refundAddr);
@@ -120,21 +136,18 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
 
         uint balanceBefore = IERC20(expectedToken).balanceOf(address(this));
         // wormhole sends token to our contract with this call
-        bytes memory payload = whTokenBridge.completeTransferWithPayload(vaas);
-        uint balanceAfter = IERC20(expectedToken).balanceOf(address(this));
-
-        WormholeBridgeStructs.TransferWithPayload memory transfer = whTokenBridge.parseTransferWithPayload(payload);
+        transfer = whTokenBridge.parseTransferWithPayload(whTokenBridge.completeTransferWithPayload(vaas));
+        require(expectedToken == extractTokenAddressFromTransferPayload(transfer));
         Interchain.RangoInterChainMessage memory m = abi.decode((transfer.payload), (Interchain.RangoInterChainMessage));
-        require(expectedToken == m.bridgeRealOutput, "expected token is not equal to received token");
 
-        (,bytes memory queriedDecimals) = m.bridgeRealOutput.staticcall(abi.encodeWithSignature("decimals()"));
+        (,bytes memory queriedDecimals) = expectedToken.staticcall(abi.encodeWithSignature("decimals()"));
         uint8 decimals = abi.decode(queriedDecimals, (uint8));
 
         // adjust decimals
         uint256 exactAmount = deNormalizeAmount(transfer.amount, decimals);
-        require(balanceAfter - balanceBefore >= exactAmount, "expected amount not transferred");
+        require(IERC20(expectedToken).balanceOf(address(this)) - balanceBefore >= exactAmount, "expected amount not transferred");
         (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(
-            m.bridgeRealOutput,
+            expectedToken,
             exactAmount,
             m
         );
@@ -149,13 +162,27 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
         );
     }
 
-    function extractTokenAddressForVaas(bytes calldata vaas) external view returns (address){
+    function extractTokenAddressForVaas(bytes calldata vaas) public view returns (address){
         RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
         IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);
         IWormhole wh = IWormhole(whTokenBridge.wormhole());
         IWormhole.VM memory vm = wh.parseVM(vaas);
         WormholeBridgeStructs.TransferWithPayload memory transfer = whTokenBridge.parseTransferWithPayload(vm.payload);
 
+        // extract token address
+        if (transfer.tokenChain == whTokenBridge.chainId()) {
+            return address(uint160(uint256(transfer.tokenAddress)));
+        } else {
+            address tmpWrappedAsset = whTokenBridge.wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
+            require(tmpWrappedAsset != LibSwapper.ETH, "Address is zero");
+            return tmpWrappedAsset;
+        }
+    }
+
+    function extractTokenAddressFromTransferPayload(WormholeBridgeStructs.TransferWithPayload memory transfer)
+    internal view returns (address){
+        RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
+        IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);
         // extract token address
         if (transfer.tokenChain == whTokenBridge.chainId()) {
             return address(uint160(uint256(transfer.tokenAddress)));

@@ -10,6 +10,7 @@ interface Interchain {
     struct RangoInterChainMessage {
         address requestId;
         uint64 dstChainId;
+        // @dev bridgeRealOutput is only used to disambiguate receipt of WETH and ETH and SHOULD NOT be used anywhere else!
         address bridgeRealOutput;
         address toToken;
         address originalSender;
