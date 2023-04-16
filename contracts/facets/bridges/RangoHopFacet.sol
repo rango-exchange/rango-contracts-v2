@@ -146,7 +146,8 @@ contract RangoHopFacet is IRango, ReentrancyGuard, IRangoHop {
         
         IHop hop = IHop(request.bridgeAddress);
         if (request.actionType == HopActionType.SWAP_AND_SEND) {
-            hop.swapAndSend{value: value}(
+            require(block.chainid != 1, "swapAndSend called from L1");
+            hop.swapAndSend{value : value}(
                 request.chainId,
                 request.recipient,
                 amount,
@@ -157,7 +158,8 @@ contract RangoHopFacet is IRango, ReentrancyGuard, IRangoHop {
                 request.destinationDeadline
             );
         } else if (request.actionType == HopActionType.SEND_TO_L2) {
-            hop.sendToL2{value: value}(
+            require(block.chainid == 1, "sendToL2 not called from L1");
+            hop.sendToL2{value : value}(
                 request.chainId,
                 request.recipient,
                 amount,
