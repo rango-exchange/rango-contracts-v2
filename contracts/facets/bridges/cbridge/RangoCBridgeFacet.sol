@@ -75,6 +75,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         }
 
         if (bridgeRequest.bridgeType == CBridgeBridgeType.TRANSFER) {
+            require(sgnFee == 0, "sgnFee should be 0 for TRANSFER");
             RangoCBridgeMiddleware(middleware).doSend{value : value}(
                 bridgeRequest.receiver,
                 request.toToken,
@@ -152,6 +153,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         LibSwapper.collectFeesFromSender(request);
 
         if (bridgeRequest.bridgeType == CBridgeBridgeType.TRANSFER) {
+            require(bridgeRequest.sgnFee == 0, "sgnFee should be 0 for TRANSFER");
             RangoCBridgeMiddleware(middleware).doSend{value : value}(
                 bridgeRequest.receiver,
                 request.token,
