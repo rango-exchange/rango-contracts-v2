@@ -138,9 +138,8 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
         // https://github.com/symbiosis-finance/js-sdk/blob/v2/src/crosschain/baseSwapping.ts#L426
         // https://github.com/symbiosis-finance/js-sdk/blob/v2/src/crosschain/baseSwapping.ts#L395
 
-        bytes memory otherSideCalldata;
         if (request.bridgeType == SymbiosisBridgeType.META_BURN) {
-            // metaBurn(uint256, uint256, address, address, address, bytes, uint256, address, address, address, address, uint256, bytes32)
+            // metaBurnSyntheticToken((uint256,uint256,address,address,address,bytes,uint256,address,address,address,address,uint256,bytes32))
             bytes4 burnSig = hex"e691a2aa";
             require(sig == burnSig, 'UnAuthorized! Invalid otherSideCalldata');
             MetaBurnTransaction memory decodedMetaBurnTx = abi.decode(request.metaRouteTransaction.otherSideCalldata[4:], (MetaBurnTransaction));
@@ -148,7 +147,7 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             require(request.receiver == decodedMetaBurnTx.chain2address, 'Invalid Requst!');
             require(request.toChainId == decodedMetaBurnTx.chainID, 'Invalid Requst!');
         } else {
-            // metaSynthesize(uint256, uint256, address, address, address, address, address, uint256, address[], address, bytes, address, bytes, uint256, address, bytes32)
+            // metaSynthesize((uint256,uint256,address,address,address,address,address,uint256,address[],address,bytes,address,bytes,uint256,address,bytes32))
             bytes4 synthSig = hex"ce654c17";
             require(sig == synthSig, 'UnAuthorized! Invalid otherSideCalldata');
             MetaSynthesizeTransaction memory decodedMetaSynthTx = abi.decode(request.metaRouteTransaction.otherSideCalldata[4:], (MetaSynthesizeTransaction));
