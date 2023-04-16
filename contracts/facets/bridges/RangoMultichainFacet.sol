@@ -62,9 +62,6 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         IRangoMultichain.MultichainBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-        if (bridgeRequest.actionType == MultichainActionType.OUT_NATIVE) {
-            require(request.toToken == LibSwapper.ETH, "token must be null");
-        }
         if (bridgeRequest.bridgeType == MultichainBridgeType.TRANSFER) {
             doMultichainBridge(bridgeRequest, request.toToken, out);
             // event emission
@@ -114,9 +111,6 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
             require(msg.value >= amountWithFee);
         }
         LibSwapper.collectFees(bridgeRequest);
-        if (request.actionType == MultichainActionType.OUT_NATIVE) {
-            require(msg.value >= amount, 'Insufficient ETH OUT_NATIVE');
-        }
         if (request.bridgeType == MultichainBridgeType.TRANSFER) {
             doMultichainBridge(request, token, amount);
             // event emission
@@ -179,8 +173,10 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         IMultichainRouter router = IMultichainRouter(routerAddr);
 
         if (request.actionType == MultichainActionType.OUT) {
+            require(request.underlyingToken == fromToken);
             router.anySwapOut(request.underlyingToken, request.receiverAddress, inputAmount, request.receiverChainID);
         } else if (request.actionType == MultichainActionType.OUT_UNDERLYING) {
+            require(IUnderlying(request.underlyingToken).underlying() == fromToken);
             router.anySwapOutUnderlying(request.underlyingToken, request.receiverAddress, inputAmount, request.receiverChainID);
         } else if (request.actionType == MultichainActionType.OUT_NATIVE) {
             router.anySwapOutNative{value : inputAmount}(request.underlyingToken, request.receiverAddress, request.receiverChainID);
