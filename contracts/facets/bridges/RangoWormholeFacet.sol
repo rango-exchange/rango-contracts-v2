@@ -134,6 +134,7 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
         require(s.wormholeRouter != LibSwapper.ETH, 'Wormhole address not set');
 
         if (request.bridgeType == WormholeBridgeType.TRANSFER_WITH_MESSAGE) {
+            require(request.fee == 0, "Fee should be zero for message");
             if (token == LibSwapper.ETH) {
                 IWormholeRouter(s.wormholeRouter).wrapAndTransferETHWithPayload{value : amount}(
                     request.recipientChain,
