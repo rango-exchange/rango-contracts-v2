@@ -6,7 +6,6 @@ import "./im/message/framework/MessageSenderApp.sol";
 import "../../../libraries/LibInterchain.sol";
 import "../../../utils/ReentrancyGuard.sol";
 import "../../base/RangoAccessManagerFacet.sol";
-import "../../base/RangoInterchainFacet.sol";
 import "../../base/RangoBaseInterchainMiddleware.sol";
 
 /// @title The middleware contract that handles Rango's interaction with cBridge.
@@ -243,6 +242,8 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
 
         if (fromToken != LibSwapper.ETH)
             LibSwapper.approveMax(fromToken, cBridgeAddress, inputAmount);
+        else
+            require(msg.value >= sgnFee + inputAmount);
 
         bytes memory message = abi.encode(imMessage);
 
