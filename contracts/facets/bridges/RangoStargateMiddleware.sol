@@ -54,7 +54,7 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         address _token,
         uint256 amountLD,
         bytes memory payload
-    ) external override nonReentrant {
+    ) external payable override nonReentrant {
         require(msg.sender == getRangoStargateMiddlewareStorage().stargateRouter,
             "sgReceive function can only be called by Stargate router");
         Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));
