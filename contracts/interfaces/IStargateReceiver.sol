@@ -10,5 +10,5 @@ interface IStargateReceiver {
         address token,
         uint256 amountLD,
         bytes memory payload
-    ) external;
+    ) payable external;
 }

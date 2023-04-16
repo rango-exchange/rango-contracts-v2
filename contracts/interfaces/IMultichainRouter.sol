@@ -56,10 +56,14 @@ interface IAnycallProxy {
         address receiver,
         uint256 amount,
         bytes calldata data
-    ) external returns (bool success, bytes memory result);
+    ) external payable returns (bool success, bytes memory result);
 }
 
 interface CustomMultichainToken {
     function transfer(address toAddress, uint256 amount) external;
     function Swapout(uint256 amount,address destination) external;
+}
+
+interface IUnderlying {
+    function underlying() external view returns (address);
 }
