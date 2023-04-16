@@ -117,7 +117,6 @@ library LibInterchain {
         if (!shouldDeposit)
             require(_token == action.path[0], "bridged token must be the same as the first token in destination swap path");
         else {
-            require(action.path[0] == baseStorage.WETH, "Invalid uniswap-V2 path");
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
@@ -168,7 +167,6 @@ library LibInterchain {
         if (!shouldDeposit)
             require(_token == action.tokenIn, "bridged token must be the same as the tokenIn in uniswapV3");
         else {
-            require(action.tokenIn == baseStorage.WETH, "Invalid uniswap-V2 path");
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
 
@@ -227,6 +225,7 @@ library LibInterchain {
             require(action.tokenIn == LibSwapper.ETH, "action.tokenIn must be ETH");
             (ok, amountOut, sourceToken) = _handleUnwrap(_token, _amount, baseStorage);
         } else {
+            ok = true;
             require(action.tokenIn == _token, "_message.tokenIn mismatch in call");
         }
         if (!ok)
@@ -239,18 +238,17 @@ library LibInterchain {
         uint toBalanceBefore = LibSwapper.getBalanceOf(_message.toToken);
 
         (bool success, bytes memory ret) = action.target.call{value: value}(action.callData);
+
+        if (sourceToken != LibSwapper.ETH)
+            SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
+
         if (success) {
             emit ActionDone(Interchain.ActionType.CALL, action.target, true, "");
-
             uint toBalanceAfter = LibSwapper.getBalanceOf(_message.toToken);
-            if (sourceToken != LibSwapper.ETH)
-                SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
             return (true, toBalanceAfter - toBalanceBefore, _message.toToken);
         } else {
             emit ActionDone(Interchain.ActionType.CALL, action.target, false, LibSwapper._getRevertMsg(ret));
-            if (sourceToken != LibSwapper.ETH)
-                SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
-            return (false, _amount, _token);
+            return (false, _amount, sourceToken);
         }
     }
 
