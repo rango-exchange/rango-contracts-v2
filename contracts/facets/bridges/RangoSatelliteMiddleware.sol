@@ -114,6 +114,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
             address _token = IAxelarGateway(s.gatewayAddress).tokenAddresses(tokenSymbol);
             SafeERC20.safeTransfer(IERC20(_token), refundAddr, amount);
             s.refundHashes[refundHash] = false;
+            s.refundHashAddresses[refundHash] = address(0);
             emit RefundHashStateUpdated(refundHash, false, refundAddr);
             emit PayloadHashRefunded(refundHash, refundAddr);
             emit RangoBridgeCompleted(
@@ -174,6 +175,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
     }
 
     function updateRefundHashesInternal(bytes32[] calldata hashes, bool[] calldata booleans, address[] calldata addresses) private {
+        require(hashes.length == booleans.length && booleans.length == addresses.length);
         SatelliteStorage storage s = getSatelliteStorage();
         bytes32 hash;
         bool enabled;
