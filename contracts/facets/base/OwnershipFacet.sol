@@ -29,7 +29,6 @@ contract OwnershipFacet is IERC173 {
     /// @notice Explicitly burn ownership, this causes no more contracts to be whitelisted and new facets cannot be added.
     function burnOwnership() external {
         LibDiamond.enforceIsContractOwner();
-        Storage storage s = getStorage();
         LibDiamond.setContractOwner(address(0));
     }
 
