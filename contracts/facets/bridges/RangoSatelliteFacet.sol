@@ -177,6 +177,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         LibSwapper.approveMax(bridgeToken, s.gatewayAddress, amount);
 
         if (request.bridgeType == SatelliteBridgeType.TRANSFER) {
+            require(request.relayerGas == 0, 'No relayerGas for sendToken');
             IAxelarGateway(s.gatewayAddress).sendToken(request.toChain, request.receiver, request.symbol, amount);
             emit SatelliteSendTokenCalled(dstChainId, bridgeToken, request.receiver, amount);
         } else {
