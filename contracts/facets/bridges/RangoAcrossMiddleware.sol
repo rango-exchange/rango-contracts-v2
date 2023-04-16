@@ -64,17 +64,9 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         bytes memory message
     ) external payable onlyWhitelistedCallers {
         // Note: When this function is called, the caller have already sent erc20 token or native token to this contract.
-        //       When this function is called with native token, msg.value is zero because the ETH is received in a previous transfer.
-        //       If we have received native token, the tokenSent parameter will be WETH address, not address(0).
-
+        //       This function is not called with native token, and only receives erc20 tokens (including WETH)
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
-        address token = tokenSent;
-
-        if (tokenSent == IAcrossSpokePool(msg.sender).wrappedNativeToken()) {
-            token = address(0);
-        }
-
-        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(token, amount, m);
+        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(tokenSent, amount, m);
 
         emit RangoBridgeCompleted(
             m.requestId,
