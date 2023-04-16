@@ -119,6 +119,7 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
             uint256 exactAmountRefund = deNormalizeAmount(transfer.amount, decimalsRefund);
             SafeERC20.safeTransfer(IERC20(expectedToken), refundAddr, exactAmountRefund);
             s.refundHashes[refundHash] = false;
+            s.refundHashAddresses[refundHash] = address(0);
             emit RefundHashStateUpdated(refundHash, false, refundAddr);
             emit PayloadHashRefunded(refundHash, refundAddr);
             emit RangoBridgeCompleted(
@@ -201,6 +202,7 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
     }
 
     function updateRefundHashesInternal(bytes32[] calldata hashes, bool[] calldata booleans, address[] calldata addresses) private {
+        require(hashes.length == booleans.length && booleans.length == addresses.length);
         RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
         bytes32 hash;
         bool enabled;
