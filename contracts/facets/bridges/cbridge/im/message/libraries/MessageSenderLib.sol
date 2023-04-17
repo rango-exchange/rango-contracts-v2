@@ -111,13 +111,8 @@ library MessageSenderLib {
         uint256 _fee
     ) internal returns (bytes32) {
         address bridge = IMessageBus(_messageBus).liquidityBridge();
-        if (_token != LibSwapper.ETH) {
-            LibSwapper.approveMax(_token, bridge, _amount);
-            IBridge(bridge).send(_receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
-        }
-        else {
-            IBridge(bridge).sendNative{value : _amount}(_receiver, _amount, _dstChainId, _nonce, _maxSlippage);
-        }
+        LibSwapper.approveMax(_token, bridge, _amount);
+        IBridge(bridge).send(_receiver, _token, _amount, _dstChainId, _nonce, _maxSlippage);
         bytes32 transferId = keccak256(
             abi.encodePacked(address(this), _receiver, _token, _amount, _dstChainId, _nonce, uint64(block.chainid))
         );

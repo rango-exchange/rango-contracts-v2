@@ -98,8 +98,16 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             );
         } else {
             Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
-            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : value}(
-                request.toToken,
+            // CBridgeIM doesn't support native tokens and we should wrap it.
+            address bridgeImToken = request.toToken;
+            if (request.toToken == LibSwapper.ETH) {
+                bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
+                IWETH(bridgeImToken).deposit{value : bridgeAmount}();
+                SafeERC20.safeTransferFrom(IERC20(bridgeImToken), msg.sender, middleware, bridgeAmount);
+            }
+            require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
+            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : sgnFee}(
+                bridgeImToken,
                 bridgeAmount,
                 bridgeRequest.receiver,
                 bridgeRequest.dstChainId,
@@ -137,10 +145,9 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         require(middleware != LibSwapper.ETH, "Middleware not set");
         // transfer tokens to middleware if necessary
         uint amount = request.amount;
-        uint sumFees = LibSwapper.sumFees(request);
         uint value = bridgeRequest.sgnFee;
         if (request.token == LibSwapper.ETH) {
-            require(msg.value >= amount + bridgeRequest.sgnFee + sumFees, "Insufficient ETH");
+            require(msg.value >= amount + bridgeRequest.sgnFee + LibSwapper.sumFees(request), "Insufficient ETH");
             value = amount + bridgeRequest.sgnFee;
         } else {
             // To save gas we dont transfer to this contract, instead we directly transfer from user to middleware.
@@ -176,8 +183,16 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             );
         } else {
             Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
-            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : value}(
-                request.token,
+            // CBridgeIM doesn't support native tokens and we should wrap it.
+            address bridgeImToken = request.token;
+            if (request.token == LibSwapper.ETH) {
+                bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
+                IWETH(bridgeImToken).deposit{value : amount}();
+                SafeERC20.safeTransferFrom(IERC20(bridgeImToken), msg.sender, middleware, amount);
+            }
+            require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
+            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : bridgeRequest.sgnFee}(
+                bridgeImToken,
                 amount,
                 bridgeRequest.receiver,
                 bridgeRequest.dstChainId,

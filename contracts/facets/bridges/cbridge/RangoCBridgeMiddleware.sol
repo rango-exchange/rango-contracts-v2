@@ -242,8 +242,6 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
 
         if (fromToken != LibSwapper.ETH)
             LibSwapper.approveMax(fromToken, cBridgeAddress, inputAmount);
-        else
-            require(msg.value >= sgnFee + inputAmount);
 
         bytes memory message = abi.encode(imMessage);
 
