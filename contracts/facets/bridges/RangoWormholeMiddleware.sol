@@ -95,6 +95,7 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
         RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
         IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);
         WormholeBridgeStructs.TransferWithPayload memory transfer;
+        uint balanceBefore = IERC20(expectedToken).balanceOf(address(this));
         /// check for refund
         bytes32 refundHash = keccak256(vaas);
         if (s.refundHashes[refundHash] == true) {
@@ -115,8 +116,8 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
             require(refundAddr != address(0), "Cannot refund to burn address");
 
             (,bytes memory queriedDecimalsRefund) = expectedToken.staticcall(abi.encodeWithSignature("decimals()"));
-            uint8 decimalsRefund = abi.decode(queriedDecimalsRefund, (uint8));
-            uint256 exactAmountRefund = deNormalizeAmount(transfer.amount, decimalsRefund);
+            uint256 exactAmountRefund = deNormalizeAmount(transfer.amount, abi.decode(queriedDecimalsRefund, (uint8)));
+            require(IERC20(expectedToken).balanceOf(address(this)) - balanceBefore >= exactAmountRefund, "expected amount not transferred");
             SafeERC20.safeTransfer(IERC20(expectedToken), refundAddr, exactAmountRefund);
             s.refundHashes[refundHash] = false;
             s.refundHashAddresses[refundHash] = address(0);
@@ -135,7 +136,6 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
             return;
         }
 
-        uint balanceBefore = IERC20(expectedToken).balanceOf(address(this));
         // wormhole sends token to our contract with this call
         transfer = whTokenBridge.parseTransferWithPayload(whTokenBridge.completeTransferWithPayload(vaas));
         require(expectedToken == extractTokenAddressFromTransferPayload(transfer));
