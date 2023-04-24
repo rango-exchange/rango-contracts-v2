@@ -152,7 +152,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
     ) internal {
         AcrossStorage storage s = getAcrossStorage();
         require(s.acrossSpokePool != address(0));
-        if (token!=LibSwapper.ETH)
+        if (token != LibSwapper.ETH)
             LibSwapper.approveMax(token, s.acrossSpokePool, amount);
 
         address bridgeToken = token;
@@ -216,6 +216,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             updatedMessage,
             depositorSignature
         );
+        s.refundHashes[_hash] = false;
     }
 
     /// @notice Speed up or update an Across bridge call for unstuck
@@ -248,6 +249,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             updatedMessage,
             depositorSignature
         );
+        s.refundHashes[hash] = false;
     }
 
 
@@ -319,6 +321,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
 
     function updateAcrossSpokePoolInternal(address _address) private {
         AcrossStorage storage s = getAcrossStorage();
+        s.acrossSpokePool = _address;
         require(_address != address(0), "Invalid SpokePool Address");
         emit AcrossSpokePoolUpdated(_address);
     }
