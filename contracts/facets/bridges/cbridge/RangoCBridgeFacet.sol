@@ -103,7 +103,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             if (request.toToken == LibSwapper.ETH) {
                 bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
                 IWETH(bridgeImToken).deposit{value : bridgeAmount}();
-                SafeERC20.safeTransferFrom(IERC20(bridgeImToken), msg.sender, middleware, bridgeAmount);
+                SafeERC20.safeTransfer(IERC20(bridgeImToken), middleware, bridgeAmount);
             }
             require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
             RangoCBridgeMiddleware(middleware).doCBridgeIM{value : sgnFee}(
@@ -188,7 +188,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             if (request.token == LibSwapper.ETH) {
                 bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
                 IWETH(bridgeImToken).deposit{value : amount}();
-                SafeERC20.safeTransferFrom(IERC20(bridgeImToken), msg.sender, middleware, amount);
+                SafeERC20.safeTransfer(IERC20(bridgeImToken), middleware, amount);
             }
             require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
             RangoCBridgeMiddleware(middleware).doCBridgeIM{value : bridgeRequest.sgnFee}(
