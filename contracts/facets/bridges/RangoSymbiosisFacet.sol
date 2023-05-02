@@ -145,7 +145,6 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             MetaBurnTransaction memory decodedMetaBurnTx = abi.decode(request.metaRouteTransaction.otherSideCalldata[4:], (MetaBurnTransaction));
             require(token == decodedMetaBurnTx.sToken, 'Invalid Token');
             require(request.receiver == decodedMetaBurnTx.chain2address, 'Invalid Requst!');
-            require(request.toChainId == decodedMetaBurnTx.chainID, 'Invalid Requst!');
         } else {
             // metaSynthesize((uint256,uint256,address,address,address,address,address,uint256,address[],address,bytes,address,bytes,uint256,address,bytes32))
             bytes4 synthSig = hex"ce654c17";
@@ -153,7 +152,6 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             MetaSynthesizeTransaction memory decodedMetaSynthTx = abi.decode(request.metaRouteTransaction.otherSideCalldata[4:], (MetaSynthesizeTransaction));
             require(token == decodedMetaSynthTx.rToken, 'Invalid Token');
             require(request.receiver == decodedMetaSynthTx.chain2address, 'Invalid Requst!');
-            require(request.toChainId == decodedMetaSynthTx.chainID, 'Invalid Requst!');
         }
         transactionData.otherSideCalldata = request.metaRouteTransaction.otherSideCalldata;
         transactionData.amount = amount;
