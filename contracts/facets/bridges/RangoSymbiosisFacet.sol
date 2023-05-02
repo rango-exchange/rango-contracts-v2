@@ -153,7 +153,6 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             require(token == decodedMetaSynthTx.rToken, 'Invalid Token');
             require(request.receiver == decodedMetaSynthTx.chain2address, 'Invalid Requst!');
         }
-        transactionData.otherSideCalldata = request.metaRouteTransaction.otherSideCalldata;
         transactionData.amount = amount;
 
         ISymbiosisMetaRouter(s.symbiosisMetaRouter).metaRoute(transactionData);
