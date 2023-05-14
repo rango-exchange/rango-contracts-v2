@@ -92,7 +92,6 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
 
     /// @notice Executes a Synapse bridge call
     /// @param request required data for bridge
-    /// @param token The address of bridging token
     /// @param inputAmount The amount of the token to be bridged
     function doSynapseBridge(
         SynapseBridgeRequest memory request,
@@ -112,57 +111,52 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
         ISynapseRouter router = ISynapseRouter(request.router);
 
         if (request.bridgeType == SynapseBridgeType.SWAP_AND_REDEEM)
-            synapseSwapAndRedeem(router, request, token, inputAmount);
+            synapseSwapAndRedeem(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.SWAP_AND_REDEEM_AND_SWAP)
-            synapseSwapAndRedeemAndSwap(router, request, token, inputAmount);
+            synapseSwapAndRedeemAndSwap(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.SWAP_AND_REDEEM_AND_REMOVE)
-            synapseSwapAndRedeemAndRemove(router, request, token, inputAmount);
+            synapseSwapAndRedeemAndRemove(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.REDEEM)
-            synapseRedeem(router, request, token, inputAmount);
+            synapseRedeem(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.REDEEM_AND_SWAP)
-            synapseRedeemAndSwap(router, request, token, inputAmount);
+            synapseRedeemAndSwap(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.REDEEM_AND_REMOVE)
-            synapseRedeemAndRemove(router, request, token, inputAmount);
+            synapseRedeemAndRemove(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.DEPOSIT)
-            synapseDeposit(router, request, token, inputAmount);
+            synapseDeposit(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.DEPOSIT_ETH)
             synapseDepositETH(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.DEPOSIT_ETH_AND_SWAP)
             synapseDepositETHAndSwap(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.DEPOSIT_AND_SWAP)
-            synapseDepositAndSwap(router, request, token, inputAmount);
+            synapseDepositAndSwap(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.SWAP_ETH_AND_REDEEM)
-            synapseSwapETHAndRedeem(router, request, token, inputAmount);
+            synapseSwapETHAndRedeem(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.ZAP_AND_DEPOSIT)
-            synapseZapAndDeposit(router, request, token, inputAmount);
+            synapseZapAndDeposit(router, request, inputAmount);
         else if (request.bridgeType == SynapseBridgeType.ZAP_AND_DEPOSIT_AND_SWAP)
-            synapseZapAndDepositAndSwap(router, request, token, inputAmount);
+            synapseZapAndDepositAndSwap(router, request, inputAmount);
         else
             revert("Invalid bridge type");
 
-
-        emit SynapseBridgeEvent(
-            inputAmount, request.bridgeType, request.to, request.chainId, token
-        );
-
         emit SynapseBridgeDetailEvent(
-            request.tokenIndexFrom, request.tokenIndexTo, request.minDy, request.deadline, request.swapTokenIndexFrom,
-            request.swapTokenIndexTo, request.swapMinDy, request.swapDeadline
+            request.bridgeToken, request.tokenIndexFrom, request.tokenIndexTo, request.minDy, request.deadline,
+            request.swapTokenIndexFrom, request.swapTokenIndexTo, request.swapMinDy, request.swapDeadline
         );
 
     }
 
-    function synapseDeposit(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
-        router.deposit(request.to, request.chainId, IERC20(token), inputAmount);
+    function synapseDeposit(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
+        router.deposit(request.to, request.chainId, IERC20(request.bridgeToken), inputAmount);
     }
 
-    function synapseRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
-        router.redeem(request.to, request.chainId, IERC20(token), inputAmount);
+    function synapseRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
+        router.redeem(request.to, request.chainId, IERC20(request.bridgeToken), inputAmount);
     }
 
-    function synapseDepositAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseDepositAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.depositAndSwap(
-            request.to, request.chainId, IERC20(token), inputAmount, request.tokenIndexFrom,
+            request.to, request.chainId, IERC20(request.bridgeToken), inputAmount, request.tokenIndexFrom,
             request.tokenIndexTo, request.minDy, request.deadline
         );
     }
@@ -178,60 +172,60 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
         );
     }
 
-    function synapseRedeemAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseRedeemAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.redeemAndSwap(
-            request.to, request.chainId, IERC20(token), inputAmount, request.tokenIndexFrom,
+            request.to, request.chainId, IERC20(request.bridgeToken), inputAmount, request.tokenIndexFrom,
             request.tokenIndexTo, request.minDy, request.deadline
         );
     }
 
-    function synapseRedeemAndRemove(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseRedeemAndRemove(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.redeemAndRemove(
-            request.to, request.chainId, IERC20(token), inputAmount, request.tokenIndexFrom,
+            request.to, request.chainId, IERC20(request.bridgeToken), inputAmount, request.tokenIndexFrom,
             request.minDy, request.deadline
         );
     }
 
-    function synapseSwapAndRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseSwapAndRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.swapAndRedeem(
-            request.to, request.chainId, IERC20(token), request.tokenIndexFrom,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.tokenIndexFrom,
             request.tokenIndexTo, inputAmount, request.minDy, request.deadline
         );
     }
 
-    function synapseSwapETHAndRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseSwapETHAndRedeem(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.swapETHAndRedeem{value : inputAmount}(
-            request.to, request.chainId, IERC20(token), request.tokenIndexFrom, request.tokenIndexTo,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.tokenIndexFrom, request.tokenIndexTo,
             inputAmount, request.minDy, request.deadline
         );
     }
 
-    function synapseSwapAndRedeemAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseSwapAndRedeemAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.swapAndRedeemAndSwap(
-            request.to, request.chainId, IERC20(token), request.tokenIndexFrom, request.tokenIndexTo,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.tokenIndexFrom, request.tokenIndexTo,
             inputAmount, request.minDy, request.deadline, request.swapTokenIndexFrom, request.swapTokenIndexTo,
             request.swapMinDy, request.swapDeadline
         );
     }
 
-    function synapseSwapAndRedeemAndRemove(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseSwapAndRedeemAndRemove(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.swapAndRedeemAndRemove(
-            request.to, request.chainId, IERC20(token), request.tokenIndexFrom, request.tokenIndexTo,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.tokenIndexFrom, request.tokenIndexTo,
             inputAmount, request.minDy, request.deadline, request.swapTokenIndexFrom, request.minDy,
             request.swapDeadline
         );
     }
 
-    function synapseZapAndDeposit(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseZapAndDeposit(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.zapAndDeposit(
-            request.to, request.chainId, IERC20(token), request.liquidityAmounts, request.minDy,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.liquidityAmounts, request.minDy,
             request.deadline
         );
     }
 
-    function synapseZapAndDepositAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, address token, uint inputAmount) private {
+    function synapseZapAndDepositAndSwap(ISynapseRouter router, SynapseBridgeRequest memory request, uint inputAmount) private {
         router.zapAndDepositAndSwap(
-            request.to, request.chainId, IERC20(token), request.liquidityAmounts, request.minDy,
+            request.to, request.chainId, IERC20(request.bridgeToken), request.liquidityAmounts, request.minDy,
             request.deadline, request.tokenIndexFrom, request.tokenIndexTo, request.swapMinDy, request.swapDeadline
         );
     }

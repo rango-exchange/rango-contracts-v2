@@ -29,6 +29,7 @@ interface IRangoSynapse {
         address router;
         address to;
         uint256 chainId;
+        address bridgeToken;
         uint8 tokenIndexFrom;
         uint8 tokenIndexTo;
         uint256 minDy;
@@ -40,15 +41,8 @@ interface IRangoSynapse {
         uint256[] liquidityAmounts;
     }
 
-    event SynapseBridgeEvent(
-        uint inputAmount,
-        SynapseBridgeType bridgeType,
-        address to,
-        uint256 chainId,
-        address token
-    );
-
     event SynapseBridgeDetailEvent(
+        address bridgeToken,
         uint8 tokenIndexFrom,
         uint8 tokenIndexTo,
         uint256 minDy,
