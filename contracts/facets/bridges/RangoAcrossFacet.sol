@@ -23,43 +23,59 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
     bytes32 internal constant ACROSS_NAMESPACE = hex"4e63b982873f293633572d65fbc8b8e979949d7d2e57c548af3c9d5fc8844dbb";
 
     struct AcrossStorage {
-        /// @notice whitelisted Across spoke pool in current chain
-        address acrossSpokePool;
+        /// @notice List of whitelisted Across spoke pools in the current chain
+        mapping(address => bool) acrossSpokePools;
         mapping(bytes32 => bool) refundHashes;
         mapping(uint32 => address) depositIdToAddress;
         bytes acrossRewardBytes;
+        /// @notice This is used to prevent malicious signature validation for a different spoke pool.
+        address temporarySpokeForSignatureVerification;
     }
 
     /// Events ///
 
-    /// @notice Notifies that spoke pool address is updated
-    /// @param _address The newly whitelisted addresse
-    event AcrossSpokePoolUpdated(address _address);
+    /// @notice Notifies that some new spoke pool addresses are whitelisted
+    /// @param _addresses The newly whitelisted addresses
+    event AcrossSpokePoolsAdded(address[] _addresses);
     /// @notice Notifies that reward bytes are updated
     /// @param rewardBytes The newly set rewardBytes
     event AcrossRewardBytesUpdated(bytes rewardBytes);
+    /// @notice Notifies that some spoke pool addresses are blacklisted
+    /// @param _addresses The addresses that are removed
+    event AcrossSpokePoolsRemoved(address[] _addresses);
 
     /// Initialization ///
 
     /// @notice Initialize the contract.
-    /// @param _spokePoolAddress The contract address of the spoke pool on the source chain.
+    /// @param _addresses The contract address of the spoke pool on the source chain.
     /// @param acrossRewardBytes The rewardBytes passed to across pool
-    function initAcross(address _spokePoolAddress, bytes calldata acrossRewardBytes) external {
+    function initAcross(address[] calldata _addresses, bytes calldata acrossRewardBytes) external {
         LibDiamond.enforceIsContractOwner();
-        updateAcrossSpokePoolInternal(_spokePoolAddress);
+        addAcrossSpokePoolsInternal(_addresses);
         setAcrossRewardBytesInternal(acrossRewardBytes);
     }
 
     /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
     receive() external payable {}
 
-    /// @notice updates the adress of spoke pool in current chain
-    /// @param _address new address for spoke pool
-    function updateAcrossSpokePool(address _address) public {
+    /// @notice Adds a list of new addresses to the whitelisted Across spokePools
+    /// @param _addresses The list of new routers
+    function addAcrossSpokePools(address[] calldata _addresses) public {
         LibDiamond.enforceIsContractOwner();
-
-        updateAcrossSpokePoolInternal(_address);
+        addAcrossSpokePoolsInternal(_addresses);
     }
+
+    /// @notice Removes a list of routers from the whitelisted addresses
+    /// @param _addresses The list of addresses that should be deprecated
+    function removeAcrossSpokePools(address[] calldata _addresses) external {
+        LibDiamond.enforceIsContractOwner();
+        AcrossStorage storage s = getAcrossStorage();
+        for (uint i = 0; i < _addresses.length; i++) {
+            delete s.acrossSpokePools[_addresses[i]];
+        }
+        emit AcrossSpokePoolsRemoved(_addresses);
+    }
+
     /// @notice Adds a list of new addresses to the whitelisted Across spokePools
     /// @param acrossRewardBytes The rewardBytes passed to across contract
     function setAcrossRewardBytes(bytes calldata acrossRewardBytes) public {
@@ -151,9 +167,9 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         uint amount
     ) internal {
         AcrossStorage storage s = getAcrossStorage();
-        require(s.acrossSpokePool != address(0));
+        require(s.acrossSpokePools[request.spokePoolAddress], "Requested spokePool address not whitelisted");
         if (token != LibSwapper.ETH)
-            LibSwapper.approveMax(token, s.acrossSpokePool, amount);
+            LibSwapper.approveMax(token, request.spokePoolAddress, amount);
 
         address bridgeToken = token;
         if (token == LibSwapper.ETH) bridgeToken = LibSwapper.getBaseSwapperStorage().WETH;
@@ -172,10 +188,10 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         bytes memory callData = concat(acrossCallData, s.acrossRewardBytes);
 
         // store depositId to use later for refunds if necessary
-        uint32 depositId = IAcrossSpokePool(s.acrossSpokePool).numberOfDeposits();
+        uint32 depositId = IAcrossSpokePool(request.spokePoolAddress).numberOfDeposits();
         s.depositIdToAddress[depositId] = msg.sender;
 
-        (bool success, bytes memory ret) = s.acrossSpokePool.call{value : token == LibSwapper.ETH ? amount : 0}(callData);
+        (bool success, bytes memory ret) = request.spokePoolAddress.call{value : token == LibSwapper.ETH ? amount : 0}(callData);
         if (!success)
             revert(LibSwapper._getRevertMsg(ret));
 
@@ -184,6 +200,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
     /// @notice Speed up or update an Across bridge call for unstuck
     /// @dev This can be used to unstuck transactions on destination by changing recipient or message
     function speedUpAcrossDeposit(
+        address spokePoolAddress,
         int64 updatedRelayerFeePct,
         uint32 depositId,
         address updatedRecipient,
@@ -191,7 +208,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         bytes memory depositorSignature
     ) external nonReentrant {
         AcrossStorage storage s = getAcrossStorage();
-        require(s.acrossSpokePool != address(0));
+        require(s.acrossSpokePools[spokePoolAddress] == true);
 
         address _owner = LibDiamond.contractOwner();
         if (msg.sender != _owner && s.depositIdToAddress[depositId] != msg.sender) {
@@ -207,8 +224,9 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             updatedMessage
         );
         s.refundHashes[_hash] = true;
+        s.temporarySpokeForSignatureVerification = spokePoolAddress;
 
-        IAcrossSpokePool(s.acrossSpokePool).speedUpDeposit(
+        IAcrossSpokePool(spokePoolAddress).speedUpDeposit(
             address(this),
             updatedRelayerFeePct,
             depositId,
@@ -217,11 +235,13 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             depositorSignature
         );
         s.refundHashes[_hash] = false;
+        s.temporarySpokeForSignatureVerification = address(0);
     }
 
     /// @notice Speed up or update an Across bridge call for unstuck
     /// @dev This can be used to unstuck transactions on destination by changing recipient or message
     function speedUpAcrossDepositWithHash(
+        address spokePoolAddress,
         bytes32 hash,
         int64 updatedRelayerFeePct,
         uint32 depositId,
@@ -236,12 +256,13 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             revert("Sender should be owner or the original depositor");
         }
 
-        require(s.acrossSpokePool != address(0));
+        require(s.acrossSpokePools[spokePoolAddress] == true);
 
         // register refund hash
         s.refundHashes[hash] = true;
+        s.temporarySpokeForSignatureVerification = spokePoolAddress;
 
-        IAcrossSpokePool(s.acrossSpokePool).speedUpDeposit(
+        IAcrossSpokePool(spokePoolAddress).speedUpDeposit(
             address(this),
             updatedRelayerFeePct,
             depositId,
@@ -250,6 +271,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
             depositorSignature
         );
         s.refundHashes[hash] = false;
+        s.temporarySpokeForSignatureVerification = address(0);
     }
 
 
@@ -258,7 +280,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         AcrossStorage storage s = getAcrossStorage();
         bytes4 MAGICVALUE = 0x1626ba7e;
         // handle eip1271 for across bridge
-        if (s.acrossSpokePool == msg.sender) {
+        if (s.temporarySpokeForSignatureVerification == msg.sender) {
             if (s.refundHashes[hash] == true) {
                 return MAGICVALUE;
             }
@@ -309,21 +331,25 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         address originToken,
         uint256 amount,
         uint256 destinationChainId,
-        uint64 relayerFeePct,
+        int64 relayerFeePct,
         uint32 quoteTimestamp,
         bytes memory message,
         uint256 maxCount
     ) public pure returns (bytes memory) {
-        return abi.encodeWithSignature("deposit(address,address,uint256,uint256,uint64,uint32,bytes,uint256)",
+        return abi.encodeWithSignature("deposit(address,address,uint256,uint256,int64,uint32,bytes,uint256)",
             recipient, originToken, amount, destinationChainId, relayerFeePct, quoteTimestamp, message, maxCount
         );
     }
 
-    function updateAcrossSpokePoolInternal(address _address) private {
+    function addAcrossSpokePoolsInternal(address[] calldata _addresses) private {
         AcrossStorage storage s = getAcrossStorage();
-        s.acrossSpokePool = _address;
-        require(_address != address(0), "Invalid SpokePool Address");
-        emit AcrossSpokePoolUpdated(_address);
+        address tmpAddr;
+        for (uint i = 0; i < _addresses.length; i++) {
+            tmpAddr = _addresses[i];
+            require(tmpAddr != address(0), "Invalid SpokePool Address");
+            s.acrossSpokePools[tmpAddr] = true;
+        }
+        emit AcrossSpokePoolsAdded(_addresses);
     }
 
     function setAcrossRewardBytesInternal(bytes calldata acrossRewardBytes) private {
