@@ -55,9 +55,17 @@ contract RangoBaseInterchainMiddleware {
     /// @notice Notifies that a new contract is whitelisted
     /// @param _address The address of the contract
     event ContractWhitelisted(address _address);
+    /// @notice Notifies that a new contract is whitelisted
+    /// @param contractAddress The address of the contract
+    /// @param methods The method signatures that are whitelisted for a contractAddress
+    event ContractAndMethodsWhitelisted(address contractAddress, bytes4[] methods);
     /// @notice Notifies that a new contract is blacklisted
     /// @param _address The address of the contract
     event ContractBlacklisted(address _address);
+    /// @notice Notifies that a contract is blacklisted and the given methods are removed
+    /// @param contractAddress The address of the contract
+    /// @param methods The method signatures that are blacklisted for the given contractAddress
+    event ContractAndMethodsBlacklisted(address contractAddress, bytes4[] methods);
     /// @notice Notifies that a new contract is whitelisted
     /// @param _dapp The address of the contract
     event MessagingDAppWhitelisted(address _dapp);
@@ -131,6 +139,7 @@ contract RangoBaseInterchainMiddleware {
     function addWhitelistContractMiddleWare(whitelistRequest[] calldata req) external onlyOwner {
         for (uint i = 0; i < req.length; i++) {
             LibSwapper.addMethodWhitelists(req[i].contractAddress, req[i].methodIds);
+            emit ContractAndMethodsWhitelisted(req[i].contractAddress, req[i].methodIds);
             emit ContractWhitelisted(req[i].contractAddress);
         }
     }
@@ -142,11 +151,21 @@ contract RangoBaseInterchainMiddleware {
         emit ContractBlacklisted(contractAddress);
     }
 
-    /// @notice Removes a method of contract from the whitelisted DEXes
-    /// @param contractAddress The address of the DEX or dApp
-    /// @param methodId The method of the DEX
-    function removeMethodWhitelistMiddleWare(address contractAddress, bytes4 methodId) external onlyOwner {
-        LibSwapper.removeMethodWhitelist(contractAddress, methodId);
+    /// @notice Removes a contract and given method ids
+    /// @param contractAddress The address of the contract
+    /// @param methodIds The methods to be removed alongside the given contract
+    function removeContractAndMethodIdsFromWhitelist(
+        address contractAddress,
+        bytes4[] calldata methodIds
+    ) external onlyOwner {
+        LibSwapper.removeWhitelist(contractAddress);
+        emit ContractBlacklisted(contractAddress);
+        for (uint i = 0; i < methodIds.length; i++) {
+            LibSwapper.removeMethodWhitelist(contractAddress, methodIds[i]);
+        }
+        if (methodIds.length > 0) {
+            emit ContractAndMethodsBlacklisted(contractAddress, methodIds);
+        }
     }
 
     /// @notice Adds a list of contracts to the whitelisted messaging dApps that can be called

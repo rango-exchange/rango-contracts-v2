@@ -24,6 +24,12 @@ contract RangoAccessManagerFacet {
     /// @param _address The address of the contract
     event ContractBlacklisted(address _address);
 
+    /// @notice Notifies that a contract is blacklisted and the given methods are removed
+    /// @param contractAddress The address of the contract
+    /// @param methods The method signatures that are blacklisted for the given contractAddress
+    event ContractAndMethodsBlacklisted(address contractAddress, bytes4[] methods);
+
+
     /// @notice Adds a contract & its' methods to the whitelisted addresses that can be called. The contract is usually a dex.
     /// @param req The array containing address of the contract & its' methods
     function addWhitelistContract(whitelistRequest[] calldata req) public {
@@ -58,5 +64,20 @@ contract RangoAccessManagerFacet {
         LibDiamond.enforceIsContractOwner();
         LibSwapper.removeWhitelist(_address);
         emit ContractBlacklisted(_address);
+    }
+
+    /// @notice Removes a contract and given method ids
+    /// @param contractAddress The address of the contract
+    /// @param methodIds The methods to be removed alongside the given contract
+    function removeContractAndMethodIdsFromWhitelist(address contractAddress, bytes4[] calldata methodIds) external {
+        LibDiamond.enforceIsContractOwner();
+        LibSwapper.removeWhitelist(contractAddress);
+        emit ContractBlacklisted(contractAddress);
+        for (uint i = 0; i < methodIds.length; i++) {
+            LibSwapper.removeMethodWhitelist(contractAddress, methodIds[i]);
+        }
+        if (methodIds.length > 0) {
+            emit ContractAndMethodsBlacklisted(contractAddress, methodIds);
+        }
     }
 }
