@@ -12,6 +12,7 @@ interface IRangoOptimism {
     struct OptimismBridgeRequest {
         address receiver;
         address l2TokenAddress;
+        address bridgeAddress;
         uint32 l2Gas;
         bool isSynth;
     }

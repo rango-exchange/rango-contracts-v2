@@ -16,22 +16,16 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
     bytes32 internal constant OPTIMISM_NAMESPACE = hex"d71013fddabd873f708e3a17329ab5776ce161122cfa59010e29f6c12070b69f";
 
     struct OptimismBridgeStorage {
-        address standardBridgeAddress;
-        mapping(address => address) tokenToBridgeAddresses;
+        mapping (address => bool) whitelistBridgeContracts;
     }
 
     struct OptimismBridgeInitData {
-        address tokenAddress;
         address bridgeAddress;
     }
 
     /// @notice Notifies that some new optimism bridge addresses are whitelisted
     /// @param data The newly added bridge & token address
     event OptimismBridgesAdded(OptimismBridgeInitData[] data);
-
-    /// @notice Notifies that some new optimism bridge addresses are whitelisted
-    /// @param bridgeAddress The newly added standard bridge address
-    event OptimismStandardBridgeAdded(address bridgeAddress);
 
     /// @notice Notifies that some optimism bridge addresses are blacklisted
     /// @param data The  bridge & token addresses that are removed
@@ -46,9 +40,9 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
 
     /// @notice Initialize the contract.
     /// @param data The contract address of the L1Bridge/ERC20Bridge and associated token on the source chain.
-    function initOptimism(OptimismBridgeInitData[] calldata data, address standardBridgeAddress) external {
+    function initOptimism(OptimismBridgeInitData[] calldata data) external {
         LibDiamond.enforceIsContractOwner();
-        addOptimismBridgesInternal(data, standardBridgeAddress);
+        addOptimismBridgesInternal(data);
     }
 
     /// @notice Removes a list of routers from the whitelisted addresses
@@ -58,7 +52,7 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
 
         OptimismBridgeStorage storage s = getOptimismBridgeStorage();
         for (uint i = 0; i < data.length; i++) {
-            delete s.tokenToBridgeAddresses[data[i].tokenAddress];
+            delete s.whitelistBridgeContracts[data[i].bridgeAddress];
         }
 
         emit OptimismBridgesRemoved(data);
@@ -131,9 +125,8 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
         uint amount
     ) internal {
         OptimismBridgeStorage storage s = getOptimismBridgeStorage();
-        address bridgeAddress = s.tokenToBridgeAddresses[fromToken] == address(0)
-            ? s.standardBridgeAddress
-            : s.tokenToBridgeAddresses[fromToken];
+        require(s.whitelistBridgeContracts[request.bridgeAddress], 'UnAuthorized! bridge is not allowed!');
+        address bridgeAddress = request.bridgeAddress;
         IOptimismL1XBridge bridge = IOptimismL1XBridge(bridgeAddress);
             
         if (fromToken == LibSwapper.ETH) {
@@ -142,7 +135,6 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
             LibSwapper.approveMax(fromToken, bridgeAddress, amount);
 
             if (request.isSynth) {
-                require(s.tokenToBridgeAddresses[fromToken] != address(0), "bridge not defined");
                 bridge.depositTo(request.receiver, amount);
             } else {
                 bridge.depositERC20To(
@@ -159,20 +151,17 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
         emit OptimismBridgeCalled(bridgeAddress, request.receiver, fromToken, amount, request.isSynth);
     }
 
-    function addOptimismBridgesInternal(OptimismBridgeInitData[] calldata data, address standardBridgeAddress) private {
+    function addOptimismBridgesInternal(OptimismBridgeInitData[] calldata data) private {
         OptimismBridgeStorage storage s = getOptimismBridgeStorage();
 
         address tmpBridgeAddr;
         for (uint i = 0; i < data.length; i++) {
             tmpBridgeAddr = data[i].bridgeAddress;
             require(tmpBridgeAddr != address(0), "Invalid Bridge Address");
-            s.tokenToBridgeAddresses[data[i].tokenAddress] = tmpBridgeAddr;
+            s.whitelistBridgeContracts[data[i].bridgeAddress] = true;
         }
-        require(standardBridgeAddress != address(0), "Invalid StandardBridge Address");
-        s.standardBridgeAddress = standardBridgeAddress;
 
         emit OptimismBridgesAdded(data);
-        emit OptimismStandardBridgeAdded(standardBridgeAddress);
     }
 
     /// @dev fetch local storage
