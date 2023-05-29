@@ -110,12 +110,21 @@ library LibInterchain {
         LibSwapper.BaseSwapperStorage storage baseStorage
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         Interchain.UniswapV2Action memory action = abi.decode((_message.action), (Interchain.UniswapV2Action));
-        require(baseStorage.whitelistContracts[action.dexAddress] == true, "Dex address is not whitelisted");
-        require(action.path.length >= 2, "Invalid uniswap-V2 path");
+        if (baseStorage.whitelistContracts[action.dexAddress] != true) {
+            // "Dex address is not whitelisted"
+            return (false, _amount, _token);
+        }
+        if (action.path.length < 2) {
+            // "Invalid uniswap-V2 path"
+            return (false, _amount, _token);
+        }
 
         bool shouldDeposit = _token == LibSwapper.ETH && action.path[0] == baseStorage.WETH;
         if (!shouldDeposit)
-            require(_token == action.path[0], "bridged token must be the same as the first token in destination swap path");
+            if (_token != action.path[0]) {
+                // "bridged token must be the same as the first token in destination swap path"
+                return (false, _amount, _token);
+            }
         else {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
@@ -161,11 +170,17 @@ library LibInterchain {
         Interchain.UniswapV3ActionExactInputSingleParams memory action = abi
             .decode((_message.action), (Interchain.UniswapV3ActionExactInputSingleParams));
 
-        require(baseStorage.whitelistContracts[action.dexAddress] == true, "Dex address is not whitelisted");
+        if (baseStorage.whitelistContracts[action.dexAddress] != true) {
+            // "Dex address is not whitelisted"
+            return (false, _amount, _token);
+        }
 
         bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == baseStorage.WETH;
         if (!shouldDeposit)
-            require(_token == action.tokenIn, "bridged token must be the same as the tokenIn in uniswapV3");
+            if (_token != action.tokenIn) {
+                // "bridged token must be the same as the tokenIn in uniswapV3"
+                return (false, _amount, _token);
+            }
         else {
             IWETH(baseStorage.WETH).deposit{value: _amount}();
         }
@@ -211,22 +226,43 @@ library LibInterchain {
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         Interchain.CallAction memory action = abi.decode((_message.action), (Interchain.CallAction));
 
-        require(baseStorage.whitelistContracts[action.target] == true, "Action.target is not whitelisted");
-        require(baseStorage.whitelistContracts[action.spender] == true, "Action.spender is not whitelisted");
+        if (baseStorage.whitelistContracts[action.target] != true) {
+            // "Action.target is not whitelisted"
+            return (false, _amount, _token);
+        }
+        if (baseStorage.whitelistContracts[action.spender] != true) {
+            // "Action.spender is not whitelisted"
+            return (false, _amount, _token);
+        }
 
         address sourceToken = _token;
 
         if (action.preAction == Interchain.CallSubActionType.WRAP) {
-            require(_token == LibSwapper.ETH, "Cannot wrap non-native");
-            require(action.tokenIn == baseStorage.WETH, "action.tokenIn must be WETH");
+            if (_token != LibSwapper.ETH) {
+                // "Cannot wrap non-native"
+                return (false, _amount, _token);
+            }
+            if (action.tokenIn != baseStorage.WETH) {
+                // "action.tokenIn must be WETH"
+                return (false, _amount, _token);
+            }
             (ok, amountOut, sourceToken) = _handleWrap(_token, _amount, baseStorage);
         } else if (action.preAction == Interchain.CallSubActionType.UNWRAP) {
-            require(_token == baseStorage.WETH, "Cannot unwrap non-WETH");
-            require(action.tokenIn == LibSwapper.ETH, "action.tokenIn must be ETH");
+            if (_token == baseStorage.WETH) {
+                // "Cannot unwrap non-WETH"
+                return (false, _amount, _token);
+            }
+            if (action.tokenIn == LibSwapper.ETH) {
+                // "action.tokenIn must be ETH"
+                return (false, _amount, _token);
+            }
             (ok, amountOut, sourceToken) = _handleUnwrap(_token, _amount, baseStorage);
         } else {
             ok = true;
-            require(action.tokenIn == _token, "_message.tokenIn mismatch in call");
+            if (action.tokenIn == _token) {
+                // "_message.tokenIn mismatch in call"
+                return (false, _amount, _token);
+            }
         }
         if (!ok)
             return (false, _amount, _token);
@@ -265,13 +301,20 @@ library LibInterchain {
     ) private returns (bool ok, uint256 amountOut, address outToken) {
 
         if (_postAction == Interchain.CallSubActionType.WRAP) {
-            require(_token == LibSwapper.ETH, "Cannot wrap non-native");
+            if (_token == LibSwapper.ETH) {
+                // "Cannot wrap non-native"
+                return (false, _amount, _token);
+            }
             (ok, amountOut, outToken) = _handleWrap(_token, _amount, baseStorage);
         } else if (_postAction == Interchain.CallSubActionType.UNWRAP) {
-            require(_token == baseStorage.WETH, "Cannot unwrap non-WETH");
+            if (_token == baseStorage.WETH) {
+                // "Cannot unwrap non-WETH"
+                return (false, _amount, _token);
+            }
             (ok, amountOut, outToken) = _handleUnwrap(_token, _amount, baseStorage);
         } else {
-            revert("Unsupported post-action");
+            // revert("Unsupported post-action");
+            return (false, _amount, _token);
         }
         if (!ok)
             return (false, _amount, _token);
@@ -287,7 +330,10 @@ library LibInterchain {
         uint _amount,
         LibSwapper.BaseSwapperStorage storage baseStorage
     ) private returns (bool ok, uint256 amountOut, address outToken) {
-        require(_token == LibSwapper.ETH, "Cannot wrap non-ETH tokens");
+        if (_token == LibSwapper.ETH) {
+            // "Cannot wrap non-ETH tokens"
+            return (false, _amount, _token);
+        }
 
         IWETH(baseStorage.WETH).deposit{value: _amount}();
         emit SubActionDone(Interchain.CallSubActionType.WRAP, baseStorage.WETH, true, "");
@@ -305,7 +351,8 @@ library LibInterchain {
         LibSwapper.BaseSwapperStorage storage baseStorage
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         if (_token != baseStorage.WETH)
-            revert("Non-WETH tokens unwrapped");
+            // revert("Non-WETH tokens unwrapped");
+            return (false, _amount, _token);
 
         IWETH(baseStorage.WETH).withdraw(_amount);
         emit SubActionDone(Interchain.CallSubActionType.UNWRAP, baseStorage.WETH, true, "");
