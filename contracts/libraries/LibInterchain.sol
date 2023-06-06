@@ -248,18 +248,18 @@ library LibInterchain {
             }
             (ok, amountOut, sourceToken) = _handleWrap(_token, _amount, baseStorage);
         } else if (action.preAction == Interchain.CallSubActionType.UNWRAP) {
-            if (_token == baseStorage.WETH) {
+            if (_token != baseStorage.WETH) {
                 // "Cannot unwrap non-WETH"
                 return (false, _amount, _token);
             }
-            if (action.tokenIn == LibSwapper.ETH) {
+            if (action.tokenIn != LibSwapper.ETH) {
                 // "action.tokenIn must be ETH"
                 return (false, _amount, _token);
             }
             (ok, amountOut, sourceToken) = _handleUnwrap(_token, _amount, baseStorage);
         } else {
             ok = true;
-            if (action.tokenIn == _token) {
+            if (action.tokenIn != _token) {
                 // "_message.tokenIn mismatch in call"
                 return (false, _amount, _token);
             }
@@ -301,13 +301,13 @@ library LibInterchain {
     ) private returns (bool ok, uint256 amountOut, address outToken) {
 
         if (_postAction == Interchain.CallSubActionType.WRAP) {
-            if (_token == LibSwapper.ETH) {
+            if (_token != LibSwapper.ETH) {
                 // "Cannot wrap non-native"
                 return (false, _amount, _token);
             }
             (ok, amountOut, outToken) = _handleWrap(_token, _amount, baseStorage);
         } else if (_postAction == Interchain.CallSubActionType.UNWRAP) {
-            if (_token == baseStorage.WETH) {
+            if (_token != baseStorage.WETH) {
                 // "Cannot unwrap non-WETH"
                 return (false, _amount, _token);
             }
@@ -330,7 +330,7 @@ library LibInterchain {
         uint _amount,
         LibSwapper.BaseSwapperStorage storage baseStorage
     ) private returns (bool ok, uint256 amountOut, address outToken) {
-        if (_token == LibSwapper.ETH) {
+        if (_token != LibSwapper.ETH) {
             // "Cannot wrap non-ETH tokens"
             return (false, _amount, _token);
         }
