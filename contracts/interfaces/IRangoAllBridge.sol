@@ -17,11 +17,12 @@ interface IRangoAllBridge {
     /// @param transferFee The native amount of tokens for bridging fee
     struct AllBridgeRequest {
         bytes32 recipient;
-        uint8 destinationChainId;
+        uint destinationChainId;
         bytes32 receiveTokenAddress;
         uint256 nonce;
         IAllBridgeRouter.MessengerProtocol messenger;
         uint transferFee;
+        uint feeTokenAmount;
     }
 
     function allbridgeSwapAndBridge(

@@ -14,10 +14,11 @@ interface IAllBridgeRouter {
         bytes32 tokenAddress,
         uint256 amount,
         bytes32 recipient,
-        uint8 destinationChainId,
+        uint destinationChainId,
         bytes32 receiveTokenAddress,
         uint256 nonce,
-        MessengerProtocol messenger) external payable;
+        MessengerProtocol messenger,
+        uint feeTokenAmount) external payable;
 
 
     // mapping(bytes32 => Pool) public pools;

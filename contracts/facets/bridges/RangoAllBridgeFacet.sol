@@ -105,22 +105,22 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
         require(s.bridgeAddress != LibSwapper.ETH, 'AllBridge bridge address not set');
         require(token != LibSwapper.ETH, 'native token bridging not implemented');
 
-        IAllBridgeRouter bridge = IAllBridgeRouter(s.bridgeAddress);
         // get the pool address and approve for it
         bytes32 tokenAddressLeftPadded = LibTransform.addressToBytes32LeftPadded(token);
 
-        address poolAddress = bridge.pools(tokenAddressLeftPadded);
+        address poolAddress = IAllBridgeRouter(s.bridgeAddress).pools(tokenAddressLeftPadded);
         require(poolAddress != LibSwapper.ETH, 'PoolAddress does not exist');
         LibSwapper.approveMax(token, poolAddress, amount);
 
-        bridge.swapAndBridge{value : request.transferFee}(
+        IAllBridgeRouter(s.bridgeAddress).swapAndBridge{value : request.transferFee}(
             tokenAddressLeftPadded,
             amount,
             request.recipient,
             request.destinationChainId,
             request.receiveTokenAddress,
             request.nonce,
-            request.messenger
+            request.messenger,
+            request.feeTokenAmount
         );
 
     }
