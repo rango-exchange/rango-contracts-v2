@@ -198,7 +198,6 @@ library LibSwapper {
     function removeMethodWhitelist(address contractAddress, bytes4 methodId) internal {
         BaseSwapperStorage storage baseStorage = getBaseSwapperStorage();
 
-        require(baseStorage.whitelistMethods[contractAddress][methodId], 'MethodId not found');
         delete baseStorage.whitelistMethods[contractAddress][methodId];
     }
 
