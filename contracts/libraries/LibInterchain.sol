@@ -120,13 +120,13 @@ library LibInterchain {
         }
 
         bool shouldDeposit = _token == LibSwapper.ETH && action.path[0] == baseStorage.WETH;
-        if (!shouldDeposit)
+        if (!shouldDeposit) {
             if (_token != action.path[0]) {
                 // "bridged token must be the same as the first token in destination swap path"
                 return (false, _amount, _token);
             }
-        else {
-            IWETH(baseStorage.WETH).deposit{value: _amount}();
+        } else {
+            IWETH(baseStorage.WETH).deposit{value : _amount}();
         }
 
         LibSwapper.approve(action.path[0], action.dexAddress, _amount);
@@ -176,13 +176,13 @@ library LibInterchain {
         }
 
         bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == baseStorage.WETH;
-        if (!shouldDeposit)
+        if (!shouldDeposit) {
             if (_token != action.tokenIn) {
                 // "bridged token must be the same as the tokenIn in uniswapV3"
                 return (false, _amount, _token);
             }
-        else {
-            IWETH(baseStorage.WETH).deposit{value: _amount}();
+        } else {
+            IWETH(baseStorage.WETH).deposit{value : _amount}();
         }
 
         LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
