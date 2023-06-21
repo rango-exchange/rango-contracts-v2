@@ -13,14 +13,15 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract SampleDApp is IRangoMessageReceiver, ReentrancyGuard {
 
     /// owner address used for refunds in case you got tokens stuck in the contract
-    address owner;
+    address public owner;
     /// whitelist of which contracts can call handleRangoMessage function.
     mapping(address => bool) whitelistedCallers;
 
     event WhitelistedCallersAdded(address[] callers);
     event WhitelistedCallersRemoved(address[] callers);
 
-    constructor(){owner = msg.sender;}
+    constructor(){owner = tx.origin;}
+    receive() external payable {}
     modifier onlyOwner(){
         require(msg.sender == owner, "Can be called only by owner");
         _;
@@ -67,7 +68,8 @@ contract SampleDApp is IRangoMessageReceiver, ReentrancyGuard {
         }
 
         // call rango for swap/bridge
-        rangoContractToCall.call{value : msg.value}(rangoCallData);
+        (bool success,) = rangoContractToCall.call{value : msg.value}(rangoCallData);
+        require(success, "Failed");
 
     }
 
