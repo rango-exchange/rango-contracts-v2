@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.16;
 
-import "../../interfaces/IRangoNitro.sol";
+import "../../interfaces/IRangoNitroAssetForwarder.sol";
 import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../utils/LibTransform.sol";
@@ -9,13 +9,16 @@ import "../../libraries/LibInterchain.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/IRouterNitroAssetForwarder.sol";
 
-// @title Facet contract to interact with Router Nitro bridge.
-// @dev In current version, paying bridge fees is only possible with native token. (only depositETH is implemented)
-contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
+// @title Facet contract to interact with Router Nitro Asset Forwarder
+contract RangoNitroAssetForwarderFacet is
+    IRango,
+    ReentrancyGuard,
+    IRangoNitroAssetForwarder
+{
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.nitro")
-    bytes32 internal constant NITRO_NAMESPACE =
-        hex"edbe4e8157d924fac5c418d6ed7f8d60f649675f1453d98af6e0f035b57ff730";
+    /// @dev keccak256("exchange.rango.facets.nitro_asset_forwarder")
+    bytes32 internal constant NITRO_ASSET_FORWARDER_NAMESPACE =
+        hex"ebac9d4b86564e454526189ad2e663764ca42d40bf0dc77efceebc2eba5ef994";
 
     address internal constant NATIVE =
         0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -53,7 +56,7 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
     function nitroSwapAndBridge(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
-        IRangoNitro.NitroBridgeRequest memory bridgeRequest
+        IRangoNitroAssetForwarder.NitroBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
@@ -68,13 +71,13 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
             uint256(getChainIdBytes(bridgeRequest.destChainId)),
             false,
             false,
-            uint8(BridgeType.Nitro),
+            uint8(BridgeType.NitroAssetForwarder),
             request.dAppTag
         );
     }
 
     function nitroBridge(
-        IRangoNitro.NitroBridgeRequest memory request,
+        IRangoNitroAssetForwarder.NitroBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint amount = bridgeRequest.amount;
@@ -106,7 +109,7 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
             uint256(getChainIdBytes(request.destChainId)),
             false,
             false,
-            uint8(BridgeType.Nitro),
+            uint8(BridgeType.NitroAssetForwarder),
             bridgeRequest.dAppTag
         );
     }
@@ -116,15 +119,11 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
     /// @param fromToken The erc20 address of the input token, 0x000...00 for native token
     /// @param amount Amount of tokens to deposit. Will be amount of tokens to receive less fees.
     function doNitroBridge(
-        IRangoNitro.NitroBridgeRequest memory request,
+        IRangoNitroAssetForwarder.NitroBridgeRequest memory request,
         address fromToken,
         uint256 amount
     ) internal {
         NitroStorage storage s = getNitroStorage();
-
-        if (fromToken != LibSwapper.ETH)
-            LibSwapper.approveMax(fromToken, s.nitroAssetForwarder, amount);
-
         IRouterNitroAssetForwarder nitroAssetForwarder = IRouterNitroAssetForwarder(
                 s.nitroAssetForwarder
             );
@@ -134,7 +133,7 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
 
     function callNitro(
         IRouterNitroAssetForwarder nitroAssetForwarder,
-        IRangoNitro.NitroBridgeRequest memory request,
+        IRangoNitroAssetForwarder.NitroBridgeRequest memory request,
         address fromToken,
         uint256 amount
     ) private {
@@ -155,9 +154,19 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
                 amount
             );
 
-        nitroAssetForwarder.iDeposit{
-            value: fromToken == LibSwapper.ETH ? amount : 0
-        }(depositData, request.destToken, request.recipient);
+        if (request.message.length == 0)
+            nitroAssetForwarder.iDeposit{
+                value: fromToken == LibSwapper.ETH ? amount : 0
+            }(depositData, request.destToken, request.recipient);
+        else
+            nitroAssetForwarder.iDepositMessage{
+                value: fromToken == LibSwapper.ETH ? amount : 0
+            }(
+                depositData,
+                request.destToken,
+                request.recipient,
+                request.message
+            );
     }
 
     function updateNitroAssetForwarderAddressInternal(
@@ -171,7 +180,7 @@ contract RangoNitroFacet is IRango, ReentrancyGuard, IRangoNitro {
 
     /// @dev fetch local storage
     function getNitroStorage() private pure returns (NitroStorage storage s) {
-        bytes32 namespace = NITRO_NAMESPACE;
+        bytes32 namespace = NITRO_ASSET_FORWARDER_NAMESPACE;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             s.slot := namespace

@@ -4,17 +4,16 @@ pragma solidity 0.8.16;
 import "./Interchain.sol";
 import "../libraries/LibSwapper.sol";
 
-/// @title An interface to RangoVoyager.sol contract to improve type hinting
-/// @author Uchiha Sasuke
-interface IRangoNitro {
+/// @title An interface to RangoAsseBridge.sol contract to improve type hinting
+/// @author Shivam Agrawal
+interface IRangoNitroAssetBridge {
     /// @notice The request object for Voyager bridge call
     struct NitroBridgeRequest {
         uint256 partnerId;
-        uint256 destAmount;
-        address refundRecipient;
+        uint64 destGasLimit;
         string destChainId;
-        bytes destToken;
         bytes recipient;
+        bytes message;
     }
 
     function nitroSwapAndBridge(
