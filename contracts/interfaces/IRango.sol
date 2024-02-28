@@ -13,7 +13,7 @@ interface IRango {
         uint16 dAppTag;
     }
 
-    enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge}
+    enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge, NitroAssetForwarder, NitroAssetBridge}
 
     /// @notice Status of cross-chain swap
     /// @param Succeeded The whole process is success and end-user received the desired token in the destination
