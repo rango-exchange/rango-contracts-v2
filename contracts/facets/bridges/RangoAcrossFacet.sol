@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
-import "../../interfaces/IAcrossSpokePool.sol";
 import "../../interfaces/IRangoAcross.sol";
 import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/Interchain.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
-
 
 /// @title The root contract that handles Rango's interaction with Across bridge
 /// @author Thinking Particle & AMA
 /// @dev This is deployed as a facet for RangoDiamond
-contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
+contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
 
     /// Storage ///
 
@@ -25,11 +21,11 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
     struct AcrossStorage {
         /// @notice List of whitelisted Across spoke pools in the current chain
         mapping(address => bool) acrossSpokePools;
-        mapping(bytes32 => bool) refundHashes;
-        mapping(uint32 => address) depositIdToAddress;
+        mapping(bytes32 => bool) DEPRECATED_refundHashes; // TODO: Should we remove these?
+        mapping(uint32 => address) DEPRECATED_depositIdToAddress; // TODO: Should we remove these?
         bytes acrossRewardBytes;
         /// @notice This is used to prevent malicious signature validation for a different spoke pool.
-        address temporarySpokeForSignatureVerification;
+        address DEPRECATED_temporarySpokeForSignatureVerification; // TODO: Should we remove these?
     }
 
     /// Events ///
@@ -175,151 +171,19 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
         if (token == LibSwapper.ETH) bridgeToken = LibSwapper.getBaseSwapperStorage().WETH;
 
         bytes memory acrossCallData = encodeWithSignature(
-            request.recipient,
+            request.depositor == LibSwapper.ETH ? msg.sender : request.depositor,
             bridgeToken,
             amount,
-            request.destinationChainId,
-            request.relayerFeePct,
-            request.quoteTimestamp,
-            request.message,
-            request.maxCount
+            amount - request.totalRelayFeeAmount, // TODO: Test if this is correct and works
+            request
         );
 
         bytes memory callData = concat(acrossCallData, s.acrossRewardBytes);
 
-        // store depositId to use later for refunds if necessary
-        uint32 depositId = IAcrossSpokePool(request.spokePoolAddress).numberOfDeposits();
-        s.depositIdToAddress[depositId] = msg.sender;
-
-        (bool success, bytes memory ret) = request.spokePoolAddress.call{value : token == LibSwapper.ETH ? amount : 0}(callData);
+        (bool success, bytes memory ret) = request.spokePoolAddress.call{value: token == LibSwapper.ETH ? amount : 0}(callData);
         if (!success)
             revert(LibSwapper._getRevertMsg(ret));
 
-    }
-
-    /// @notice Speed up or update an Across bridge call for unstuck
-    /// @dev This can be used to unstuck transactions on destination by changing recipient or message
-    function speedUpAcrossDeposit(
-        address spokePoolAddress,
-        int64 updatedRelayerFeePct,
-        uint32 depositId,
-        address updatedRecipient,
-        bytes memory updatedMessage,
-        bytes memory depositorSignature
-    ) external nonReentrant {
-        AcrossStorage storage s = getAcrossStorage();
-        require(s.acrossSpokePools[spokePoolAddress] == true);
-
-        address _owner = LibDiamond.contractOwner();
-        if (msg.sender != _owner && s.depositIdToAddress[depositId] != msg.sender) {
-            revert("Sender should be owner or the original depositor");
-        }
-
-        // register refund hash
-        bytes32 _hash = getTypedDataV4Hash(
-            depositId,
-            block.chainid,
-            updatedRelayerFeePct,
-            updatedRecipient,
-            updatedMessage
-        );
-        s.refundHashes[_hash] = true;
-        s.temporarySpokeForSignatureVerification = spokePoolAddress;
-
-        IAcrossSpokePool(spokePoolAddress).speedUpDeposit(
-            address(this),
-            updatedRelayerFeePct,
-            depositId,
-            updatedRecipient,
-            updatedMessage,
-            depositorSignature
-        );
-        s.refundHashes[_hash] = false;
-        s.temporarySpokeForSignatureVerification = address(0);
-    }
-
-    /// @notice Speed up or update an Across bridge call for unstuck
-    /// @dev This can be used to unstuck transactions on destination by changing recipient or message
-    function speedUpAcrossDepositWithHash(
-        address spokePoolAddress,
-        bytes32 hash,
-        int64 updatedRelayerFeePct,
-        uint32 depositId,
-        address updatedRecipient,
-        bytes memory updatedMessage,
-        bytes memory depositorSignature
-    ) external nonReentrant {
-        AcrossStorage storage s = getAcrossStorage();
-
-        address _owner = LibDiamond.contractOwner();
-        if (msg.sender != _owner && s.depositIdToAddress[depositId] != msg.sender) {
-            revert("Sender should be owner or the original depositor");
-        }
-
-        require(s.acrossSpokePools[spokePoolAddress] == true);
-
-        // register refund hash
-        s.refundHashes[hash] = true;
-        s.temporarySpokeForSignatureVerification = spokePoolAddress;
-
-        IAcrossSpokePool(spokePoolAddress).speedUpDeposit(
-            address(this),
-            updatedRelayerFeePct,
-            depositId,
-            updatedRecipient,
-            updatedMessage,
-            depositorSignature
-        );
-        s.refundHashes[hash] = false;
-        s.temporarySpokeForSignatureVerification = address(0);
-    }
-
-
-    // @dev Important Note: If any facets needs to support EIP1271 in future, we should have a function that supports EIP1271 for all facets. Otherwise, only one facet will have isValidSignature and others will be left out
-    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4){
-        AcrossStorage storage s = getAcrossStorage();
-        bytes4 MAGICVALUE = 0x1626ba7e;
-        // handle eip1271 for across bridge
-        if (s.temporarySpokeForSignatureVerification == msg.sender) {
-            if (s.refundHashes[hash] == true) {
-                return MAGICVALUE;
-            }
-        }
-        // sender is not across bridge. We can handle other cases here later if needed.
-        return 0xffffffff;
-    }
-
-    /// @dev This function is based on Across SpokePool and _hashTypedDataV4, to get the hashed of data.
-    function getTypedDataV4Hash(
-        uint32 depositId,
-        uint256 originChainId,
-        int64 updatedRelayerFeePct,
-        address updatedRecipient,
-        bytes memory updatedMessage
-    ) public pure returns (bytes32){
-
-        bytes32 hashedName = keccak256(bytes("ACROSS-V2"));
-        bytes32 hashedVersion = keccak256(bytes("1.0.0"));
-        bytes32 _HASHED_NAME = hashedName;
-        bytes32 _HASHED_VERSION = hashedVersion;
-        bytes32 _TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId)");
-
-        bytes32 domainSep = keccak256(abi.encode(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION, originChainId));
-        bytes32 UPDATE_DEPOSIT_DETAILS_HASH = keccak256(
-            "UpdateDepositDetails(uint32 depositId,uint256 originChainId,int64 updatedRelayerFeePct,address updatedRecipient,bytes updatedMessage)"
-        );
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                UPDATE_DEPOSIT_DETAILS_HASH,
-                depositId,
-                originChainId,
-                updatedRelayerFeePct,
-                updatedRecipient,
-                keccak256(updatedMessage)
-            )
-        );
-        return ECDSAUpgradeable.toTypedDataHash(domainSep, structHash);
     }
 
     function concat(bytes memory a, bytes memory b) internal pure returns (bytes memory) {
@@ -327,17 +191,17 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross, IERC1271 {
     }
 
     function encodeWithSignature(
-        address recipient,
-        address originToken,
-        uint256 amount,
-        uint256 destinationChainId,
-        int64 relayerFeePct,
-        uint32 quoteTimestamp,
-        bytes memory message,
-        uint256 maxCount
+        address depositor,
+        address inputToken,
+        uint256 inputAmount,
+        uint256 outputAmount,
+        AcrossBridgeRequest memory request
     ) public pure returns (bytes memory) {
-        return abi.encodeWithSignature("deposit(address,address,uint256,uint256,int64,uint32,bytes,uint256)",
-            recipient, originToken, amount, destinationChainId, relayerFeePct, quoteTimestamp, message, maxCount
+        return abi.encodeWithSignature(
+            "depositV3(address,address,address,address,uint256,uint256,uint256,address,uint32,uint32,uint32,bytes)",
+            depositor, request.recipient, inputToken, request.outputToken, inputAmount, outputAmount,
+            request.destinationChainId, request.exclusiveRelayer, request.quoteTimestamp, request.fillDeadline,
+            request.exclusivityDeadline, request.message
         );
     }
 

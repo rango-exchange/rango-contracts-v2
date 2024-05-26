@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../libraries/LibInterchain.sol";
+import "../../interfaces/IStargateReceiver.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../base/RangoBaseInterchainMiddleware.sol";
 
@@ -14,31 +15,41 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
     bytes32 internal constant STARGATE_MIDDLEWARE_NAMESPACE = hex"8f95700cb6d0d3fbe23970b0fed4ae8d3a19af1ff9db49b72f280b34bdf7bad8";
 
     struct RangoStargateMiddlewareStorage {
-        address stargateRouter;
+        address stargateComposer;
+        address sgeth;
     }
 
     function initStargateMiddleware(
         address _owner,
-        address _stargateRouter,
-        address _weth
+        address _stargateComposer,
+        address _whitelistsContract,
+        address _sgeth
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
-        updateStargateRouterAddressInternal(_stargateRouter);
+        initBaseMiddleware(_owner, _whitelistsContract);
+        updateStargateComposerAndSGETHAddressInternal(_stargateComposer, _sgeth);
     }
 
     /// Events
 
     /// @notice Emits when the Stargate address is updated
     /// @param oldAddress The previous address
-    /// @param newAddress The new address
-    event StargateRouterAddressUpdated(address oldAddress, address newAddress);
+    /// @param newAddress The new SGETH address
+    event StargateComposerAddressUpdated(address oldAddress, address newAddress, address oldSgethAddress, address sgethAddress);
 
     /// External Functions
 
-    /// @notice Updates the address of stargateRouter
-    /// @param newAddress The new address of owner
-    function updateStargateRouter(address newAddress) external onlyOwner {
-        updateStargateRouterAddressInternal(newAddress);
+    /// @notice Updates the address of StargateComposer
+    /// @param newComposerAddress The new address of composer
+    function updateStargateComposer(address newComposerAddress) external onlyOwner {
+        RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
+        updateStargateComposerAndSGETHAddressInternal(newComposerAddress, s.sgeth);
+    }
+
+    /// @notice Updates the address of SGETH Address
+    /// @param sgethAddress The new address of SGETH
+    function updateStargetSGETH(address sgethAddress) external onlyOwner {
+        RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
+        updateStargateComposerAndSGETHAddressInternal(s.stargateComposer, sgethAddress);
     }
 
     // @param _chainId The remote chainId sending the tokens
@@ -55,10 +66,14 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         uint256 amountLD,
         bytes memory payload
     ) external payable override nonReentrant {
-        require(msg.sender == getRangoStargateMiddlewareStorage().stargateRouter,
-            "sgReceive function can only be called by Stargate router");
+        require(msg.sender == getRangoStargateMiddlewareStorage().stargateComposer,
+            "sgReceive function can only be called by Stargate Composer");
         Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));
-        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(_token, amountLD, m);
+        address bridgeToken = _token;
+        if (_token == getRangoStargateMiddlewareStorage().sgeth) {
+            bridgeToken = LibSwapper.ETH;
+        }
+        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(bridgeToken, amountLD, m);
 
         emit RangoBridgeCompleted(
             m.requestId,
@@ -72,12 +87,15 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
     }
 
     /// Private and Internal
-    function updateStargateRouterAddressInternal(address newAddress) private {
-        require(newAddress != address(0), "Invalid StargateRouter");
+    function updateStargateComposerAndSGETHAddressInternal(address newComposerAddress, address sgethAddress) private {
+        require(newComposerAddress != address(0), "Invalid StargateComposer");
         RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
-        address oldAddress = s.stargateRouter;
-        s.stargateRouter = newAddress;
-        emit StargateRouterAddressUpdated(oldAddress, newAddress);
+        address oldComposerAddress = s.stargateComposer;
+        s.stargateComposer = newComposerAddress;
+
+        address oldSgethAddress = s.sgeth;
+        s.sgeth = sgethAddress;
+        emit StargateComposerAddressUpdated(oldComposerAddress, newComposerAddress, oldSgethAddress, sgethAddress);
     }
 
     /// @dev fetch local storage

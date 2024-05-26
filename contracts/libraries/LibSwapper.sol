@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IRango.sol";
+
 
 /// @title BaseSwapper
 /// @author 0xiden
@@ -119,6 +120,7 @@ library LibSwapper {
     /// @param affiliateFee The amount of fee charged by affiliator dApp
     /// @param affiliatorAddress The wallet address that the affiliator fee should be sent to
     /// @param minimumAmountExpected The minimum amount of toToken expected after executing Calls
+    /// @param feeFromInputToken If set to true, the fees will be taken from input token and otherwise, from output token. (platformFee,destinationExecutorFee,affiliateFee)
     /// @param dAppTag An optional parameter
     struct SwapRequest {
         address requestId;
@@ -130,6 +132,7 @@ library LibSwapper {
         uint affiliateFee;
         address payable affiliatorAddress;
         uint minimumAmountExpected;
+        bool feeFromInputToken;
         uint16 dAppTag;
     }
 
@@ -263,7 +266,7 @@ library LibSwapper {
         uint secondaryBalance = toBalanceAfter - toBalanceBefore;
         require(secondaryBalance >= request.minimumAmountExpected, "Output is less than minimum expected");
 
-        return (result, secondaryBalance);
+        return (result, secondaryBalance - (request.feeFromInputToken ? 0 : sumFees(request)));
     }
 
     /// @notice Private function to handle fetching money from wallet to contract, reduce fee/affiliate, perform DEX calls
@@ -272,7 +275,6 @@ library LibSwapper {
     /// @dev It checks the whitelisting of all DEX addresses + having enough msg.value as input
     /// @return The bytes of all DEX calls response
     function callSwapsAndFees(SwapRequest memory request, Call[] calldata calls) private returns (bytes[] memory) {
-        bool isSourceNative = request.fromToken == ETH;
         BaseSwapperStorage storage baseSwapperStorage = getBaseSwapperStorage();
 
         for (uint256 i = 0; i < calls.length; i++) {
@@ -282,32 +284,8 @@ library LibSwapper {
             require(baseSwapperStorage.whitelistMethods[calls[i].target][sig], "Unauthorized call data!");
         }
 
-        // Get Platform fee
-        bool hasPlatformFee = request.platformFee > 0;
-        bool hasDestExecutorFee = request.destinationExecutorFee > 0;
-        bool hasAffiliateFee = request.affiliateFee > 0;
-        if (hasPlatformFee || hasDestExecutorFee) {
-            require(baseSwapperStorage.feeContractAddress != ETH, "Fee contract address not set");
-            _sendToken(request.fromToken, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, isSourceNative, false);
-        }
-
-        // Get affiliate fee
-        if (hasAffiliateFee) {
-            require(request.affiliatorAddress != ETH, "Invalid affiliatorAddress");
-            _sendToken(request.fromToken, request.affiliateFee, request.affiliatorAddress, isSourceNative, false);
-        }
-
-        // emit Fee event
-        if (hasPlatformFee || hasDestExecutorFee || hasAffiliateFee) {
-            emit FeeInfo(
-                request.fromToken,
-                request.affiliatorAddress,
-                request.platformFee,
-                request.destinationExecutorFee,
-                request.affiliateFee,
-                request.dAppTag
-            );
-        }
+        // Get Fees
+        LibSwapper.collectFeesForSwap(request);
 
         // Execute swap Calls
         bytes[] memory returnData = new bytes[](calls.length);
@@ -336,7 +314,7 @@ library LibSwapper {
     /// @param spender The contract address that should be approved
     /// @param value The amount that should be approved
     function approve(address token, address spender, uint value) internal {
-        SafeERC20.safeApprove(IERC20(token), spender, 0);
+        SafeERC20.forceApprove(IERC20(token), spender, 0);
         SafeERC20.safeIncreaseAllowance(IERC20(token), spender, value);
     }
 
@@ -349,7 +327,7 @@ library LibSwapper {
         if (currentAllowance < value) {
             if (currentAllowance != 0) {
                 // We set allowance to 0 if not already. tokens such as USDT require zero allowance first.
-                SafeERC20.safeApprove(IERC20(token), spender, 0);
+                SafeERC20.forceApprove(IERC20(token), spender, 0);
             }
             SafeERC20.safeIncreaseAllowance(IERC20(token), spender, type(uint256).max);
         }
@@ -365,6 +343,37 @@ library LibSwapper {
 
     function sumFees(SwapRequest memory request) internal pure returns (uint256) {
         return request.platformFee + request.affiliateFee + request.destinationExecutorFee;
+    }
+
+    function collectFeesForSwap(SwapRequest memory request) internal {
+        BaseSwapperStorage storage baseSwapperStorage = getBaseSwapperStorage();
+        // Get Platform fee
+        bool hasPlatformFee = request.platformFee > 0;
+        bool hasDestExecutorFee = request.destinationExecutorFee > 0;
+        bool hasAffiliateFee = request.affiliateFee > 0;
+        address feeToken = request.feeFromInputToken ? request.fromToken : request.toToken;
+        if (hasPlatformFee || hasDestExecutorFee) {
+            require(baseSwapperStorage.feeContractAddress != ETH, "Fee contract address not set");
+            _sendToken(feeToken, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, feeToken == ETH, false);
+        }
+
+        // Get affiliate fee
+        if (hasAffiliateFee) {
+            require(request.affiliatorAddress != ETH, "Invalid affiliatorAddress");
+            _sendToken(feeToken, request.affiliateFee, request.affiliatorAddress, feeToken == ETH, false);
+        }
+
+        // emit Fee event
+        if (hasPlatformFee || hasDestExecutorFee || hasAffiliateFee) {
+            emit FeeInfo(
+                feeToken,
+                request.affiliatorAddress,
+                request.platformFee,
+                request.destinationExecutorFee,
+                request.affiliateFee,
+                request.dAppTag
+            );
+        }
     }
 
     function collectFees(IRango.RangoBridgeRequest memory request) internal {
@@ -535,7 +544,7 @@ library LibSwapper {
 
     /// This function transfers tokens from users based on the SwapRequest, it transfers amountIn + fees.
     function transferTokensFromUserForSwapRequest(SwapRequest memory request) private {
-        uint transferAmount = request.amountIn + sumFees(request);
+        uint transferAmount = request.amountIn + (request.feeFromInputToken ? sumFees(request) : 0);
         if (request.fromToken != ETH)
             SafeERC20.safeTransferFrom(IERC20(request.fromToken), msg.sender, address(this), transferAmount);
         else

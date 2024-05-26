@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../interfaces/IRango.sol";
 import "../../interfaces/IAxelarExecutable.sol";
@@ -15,15 +15,15 @@ import "../../utils/ReentrancyGuard.sol";
 /// @dev This is not a facet, its deployed separately. The refund is handled by whitelisting the payload hash.
 contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable, RangoBaseInterchainMiddleware {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.satellite")
-    bytes32 internal constant SATELLITE_NAMESPACE = hex"e97496d8273588711c444d166dc378e07de45d7ba4c6f83debe0eaef953c5a6f";
+    /// @dev keccak256("exchange.rango.middleware.satellite")
+    bytes32 internal constant SATELLITE_MIDDLEWARE_NAMESPACE = hex"80a0d98887c030c89072a2d6bd41e167c868777e38dd08ce9535a82c0c1f4a22";
 
     function initSatelliteMiddleware(
         address _owner,
         address _gatewayAddress,
-        address _weth
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         updateSatelliteGatewayInternal(_gatewayAddress);
     }
 
@@ -193,7 +193,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
 
     /// @dev fetch local storage
     function getSatelliteStorage() private pure returns (SatelliteStorage storage s) {
-        bytes32 namespace = SATELLITE_NAMESPACE;
+        bytes32 namespace = SATELLITE_MIDDLEWARE_NAMESPACE;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             s.slot := namespace

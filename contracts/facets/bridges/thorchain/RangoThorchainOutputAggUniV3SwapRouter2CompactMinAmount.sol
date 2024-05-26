@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../../../interfaces/IThorchainRouter.sol";
 import "../../../interfaces/IUniswapV3SwapRouter2.sol";
 import "../../../interfaces/IWETH.sol";

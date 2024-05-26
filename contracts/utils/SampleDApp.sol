@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../interfaces/IRangoMessageReceiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 
 /// @title Sample dApp contract
@@ -63,8 +63,8 @@ contract SampleDApp is IRangoMessageReceiver, ReentrancyGuard {
             require(msg.value == amount, "Insufficient Eth");
         } else {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amount);
-            SafeERC20.safeApprove(IERC20(token), rangoContractToCall, 0);
-            SafeERC20.safeApprove(IERC20(token), rangoContractToCall, amount);
+            SafeERC20.forceApprove(IERC20(token), rangoContractToCall, 0);
+            SafeERC20.safeIncreaseAllowance(IERC20(token), rangoContractToCall, amount);
         }
 
         // call rango for swap/bridge

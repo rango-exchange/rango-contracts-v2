@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../interfaces/IWETH.sol";
 import "../../interfaces/IRangoHyphen.sol";
@@ -15,7 +15,7 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
 
     /// Storage ///
     /// @dev keccak256("exchange.rango.facets.hyphen")
-    bytes32 internal constant HYPHEN_NAMESPACE = hex"e55d91fd33507c47be7760850d08c4215f74dbd7bc3c006505d8961de648af93";
+    bytes32 internal constant HYPHEN_NAMESPACE = hex"03d6075c4307fa6a1d5e4f47b6afe0afc330c565a46a6b9bab3c522c2bd8485d";
 
     struct HyphenStorage {
         /// @notice The address of hyphen contract

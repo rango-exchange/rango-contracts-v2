@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../interfaces/IWETH.sol";
 import "../../interfaces/IRangoSatellite.sol";
@@ -75,7 +75,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
     function satelliteSwapAndBridge(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
-        IRangoSatellite.SatelliteBridgeRequest memory bridgeRequest
+        SatelliteBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint out;
         uint bridgeAmount;
@@ -91,11 +91,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         }
 
         doSatelliteBridge(bridgeRequest, request.toToken, bridgeAmount);
-        bool hasDestSwap = false;
-        if (bridgeRequest.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE) {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
+
         // event emission
         emit RangoBridgeInitiated(
             request.requestId,
@@ -104,7 +100,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
             LibTransform.stringToAddress(bridgeRequest.receiver),
             bridgeRequest.toChainId,
             bridgeRequest.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE,
-            hasDestSwap,
+            false,
             uint8(BridgeType.Axelar),
             request.dAppTag
         );
@@ -129,11 +125,6 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         LibSwapper.collectFees(bridgeRequest);
         doSatelliteBridge(request, token, amount);
 
-        bool hasDestSwap = false;
-        if (request.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE) {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((request.imMessage), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
         // event emission
         emit RangoBridgeInitiated(
             bridgeRequest.requestId,
@@ -142,7 +133,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
             LibTransform.stringToAddress(request.receiver),
             request.toChainId,
             request.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE,
-            hasDestSwap,
+            false,
             uint8(BridgeType.Axelar),
             bridgeRequest.dAppTag
         );

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../interfaces/IUniswapV2.sol";
 import "../../interfaces/IWETH.sol";
@@ -16,7 +16,7 @@ import "../../libraries/LibDiamond.sol";
 import "../../utils/LibTransform.sol";
 
 /// @title The root contract that handles Rango's interaction with Stargate. For receiving messages from LayerZero, a middleware contract is used(RangoStargateMiddleware).
-/// @author Uchiha Sasuke
+/// @author George & AMA
 contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     /// Storage ///
     /// @dev keccak256("exchange.rango.facets.stargate")
@@ -24,7 +24,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
 
     struct StargateStorage {
         /// @notice The address of stargate contract
-        address stargateRouter;
+        address stargateComposer;
         address stargateRouterEth;
         address stargateWidget;
         bytes2 partnerId;
@@ -34,30 +34,30 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     /// @param addresses The new addresses of Stargate contracts
     function initStargate(StargateStorage calldata addresses) external {
         LibDiamond.enforceIsContractOwner();
-        updateStargateAddressInternal(addresses.stargateRouter, addresses.stargateRouterEth);
+        updateStargateAddressInternal(addresses.stargateComposer, addresses.stargateRouterEth);
         updateStargateWidgetInternal(addresses.stargateWidget, addresses.partnerId);
     }
 
     /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
     receive() external payable {}
 
-    /// @notice Emits when the stargate router address is updated
-    /// @param _oldRouter The previous router address
+    /// @notice Emits when the stargate contract address is updated
+    /// @param _oldComposer The previous composer address
     /// @param _oldRouterEth The previous routerEth address
-    /// @param _newRouter The new router address
+    /// @param _newComposer The new composer address
     /// @param _newRouterEth The new routerEth address
-    event StargateAddressUpdated(address _oldRouter, address _oldRouterEth, address _newRouter, address _newRouterEth);
+    event StargateAddressUpdated(address _oldComposer, address _oldRouterEth, address _newComposer, address _newRouterEth);
     /// @notice Emits when the stargate widget address is updated
     /// @param _widgetAddress The widget address of stargate
     /// @param _partnerId The partnerId of stargate
     event StargateWidgetUpdated(address _widgetAddress, bytes2 _partnerId);
 
     /// @notice Updates the address of Stargate contract
-    /// @param _router The new address of Stargate contract
-    /// @param _routerEth The new address of Stargate contract
-    function updateStargateAddress(address _router, address _routerEth) public {
+    /// @param _composer The new address of Stargate composer contract
+    /// @param _routerEth The new address of Stargate router contract
+    function updateStargateAddress(address _composer, address _routerEth) public {
         LibDiamond.enforceIsContractOwner();
-        updateStargateAddressInternal(_router, _routerEth);
+        updateStargateAddressInternal(_composer, _routerEth);
     }
     /// @notice Updates the address of Stargate contract
     /// @param _widgetAddress The new address of Stargate contract
@@ -70,7 +70,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     function stargateSwapAndBridge(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
-        IRangoStargate.StargateRequest memory stargateRequest
+        StargateRequest memory stargateRequest
     ) external payable nonReentrant {
         uint out;
         uint bridgeAmount;
@@ -107,7 +107,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     }
 
     function stargateBridge(
-        IRangoStargate.StargateRequest memory stargateRequest,
+        StargateRequest memory stargateRequest,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
@@ -151,7 +151,10 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     ) internal {
         StargateStorage storage s = getStargateStorage();
 
-        address router = fromToken == LibSwapper.ETH ? s.stargateRouterEth : s.stargateRouter;
+        address router = s.stargateComposer;
+        if (fromToken == LibSwapper.ETH && request.bridgeType == StargateBridgeType.TRANSFER) {
+            router = s.stargateRouterEth;
+        }
         require(router != LibSwapper.ETH, "Stargate router address not set");
 
         if (fromToken != LibSwapper.ETH) {
@@ -164,15 +167,44 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
 
         if (fromToken == LibSwapper.ETH) {
             if (request.bridgeType == StargateBridgeType.TRANSFER_WITH_MESSAGE) {
-                revert("Payload not supported on swapETH");
+                stargateRouterSwapEthAndCall(request, router, inputAmount, request.stgFee, payload);
+            } else {
+                stargateRouterSwapEth(request, router, inputAmount);
             }
-            stargateRouterSwapEth(request, router, inputAmount);
         } else {
             stargateRouterSwap(request, router, inputAmount, request.stgFee, payload);
         }
         if (s.stargateWidget != LibSwapper.ETH) {
             IStargateWidget(s.stargateWidget).partnerSwap(s.partnerId);
         }
+    }
+
+    function stargateRouterSwapEthAndCall(
+        StargateRequest memory request,
+        address router,
+        uint256 inputAmount,
+        uint256 stgFee,
+        bytes memory payload
+    ) private {
+        IStargateRouter.lzTxObj memory lzTx = IStargateRouter.lzTxObj(
+            request.dstGasForCall,
+            request.dstNativeAmount,
+            request.dstNativeAddr
+        );
+
+        IStargateRouter.SwapAmount memory swapAmount = IStargateRouter.SwapAmount(
+            inputAmount,
+            request.minAmountLD
+        );
+
+        IStargateRouter(router).swapETHAndCall{value: inputAmount + stgFee}(
+            request.dstChainId,
+            request.srcGasRefundAddress,
+            request.to,
+            swapAmount,
+            lzTx,
+            payload
+        );
     }
 
     function stargateRouterSwapEth(StargateRequest memory request, address router, uint256 bridgeAmount) private {
@@ -210,17 +242,17 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         );
     }
 
-    function updateStargateAddressInternal(address _router, address _routerEth) private {
-        require(_router != address(0), "Invalid router Address");
+    function updateStargateAddressInternal(address _composer, address _routerEth) private {
+        require(_composer != address(0), "Invalid composer Address");
         require(_routerEth != address(0), "Invalid routerEth Address");
         StargateStorage storage s = getStargateStorage();
-        address oldAddressRouter = s.stargateRouter;
-        s.stargateRouter = _router;
+        address oldAddressComposer = s.stargateComposer;
+        s.stargateComposer = _composer;
 
         address oldAddressRouterEth = s.stargateRouterEth;
         s.stargateRouterEth = _routerEth;
 
-        emit StargateAddressUpdated(oldAddressRouter, oldAddressRouterEth, _router, _routerEth);
+        emit StargateAddressUpdated(oldAddressComposer, oldAddressRouterEth, _composer, _routerEth);
     }
 
     function updateStargateWidgetInternal(address _widgetAddress, bytes2 _partnerId) private {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "./im/message/framework/MessageReceiverApp.sol";
 import "./im/message/framework/MessageSenderApp.sol";
@@ -26,10 +26,9 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         address _owner,
         address _cBridgeAddress,
         address _cBridgeMessageBusAddress,
-        address _rangoDiamond,
-        address _weth
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, _rangoDiamond, _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         updateCBridgeAddressInternal(_cBridgeAddress);
         setMessageBusInternal(_cBridgeMessageBusAddress);
     }
@@ -54,6 +53,10 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
     /// @param nonce A nonce mechanism used by cBridge that is generated off-chain, it normally is the time.now()
     /// @param maxSlippage The maximum tolerable slippage by user on cBridge side (The bridge is not 1-1 and may have slippage in big swaps)
     event CBridgeSend(address receiver, address token, uint256 amount, uint64 dstChainId, uint64 nonce, uint32 maxSlippage);
+
+    /// Errors
+    /// @notice used when cbridge address is not valid
+    error InvalidCbridgeAddress();
 
     /// Administration & Control
 
@@ -202,7 +205,8 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         uint32 maxSlippage
     ) external payable nonReentrant onlyDiamond {
         address cBridgeAddress = getRangoCBridgeMiddlewareStorage().cBridgeAddress;
-        require(cBridgeAddress != LibSwapper.ETH, 'cBridge address not set');
+        if (cBridgeAddress == LibSwapper.ETH)
+            revert InvalidCbridgeAddress();
         if (token != LibSwapper.ETH) {
             LibSwapper.approveMax(token, cBridgeAddress, amount);
             IBridge(cBridgeAddress).send(receiver, token, amount, dstChainId, nonce, maxSlippage);
@@ -237,8 +241,9 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         address messageBus = getMsgBusAddress();
 
         require(messageBus != LibSwapper.ETH, 'cBridge message-bus address not set');
-        require(cBridgeAddress != LibSwapper.ETH, 'cBridge address not set');
-        require(imMessage.dstChainId == dstChainId, 'dstChainId and imMessage.dstChainId do not match');
+        if (cBridgeAddress == LibSwapper.ETH)
+            revert InvalidCbridgeAddress();
+        require(imMessage.dstChainId == dstChainId, 'dst chain does not match');
 
         if (fromToken != LibSwapper.ETH)
             LibSwapper.approveMax(fromToken, cBridgeAddress, inputAmount);
@@ -259,7 +264,8 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
     }
 
     function updateCBridgeAddressInternal(address newAddress) private {
-        require(newAddress != address(0), "Invalid CBridge Address");
+        if (newAddress == address(0))
+            revert InvalidCbridgeAddress();
         RangoCBridgeMiddlewareStorage storage s = getRangoCBridgeMiddlewareStorage();
         address oldAddress = s.cBridgeAddress;
         s.cBridgeAddress = newAddress;

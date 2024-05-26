@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 /// @dev based on IswapRouter of UniswapV3 https://docs.uniswap.org/protocol/reference/periphery/interfaces/ISwapRouter
 interface IUniswapV3SwapRouter2 {
     struct ExactInputSingleParams {

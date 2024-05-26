@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "./im/message/framework/MessageSenderApp.sol";
 import "./im/message/framework/MessageReceiverApp.sol";

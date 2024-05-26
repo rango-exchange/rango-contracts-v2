@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../libraries/LibInterchain.sol";
 import "../../utils/ReentrancyGuard.sol";
@@ -21,10 +21,10 @@ contract RangoMultichainMiddleware is IRango, ReentrancyGuard, RangoBaseIntercha
 
     function initMultichainMiddleware(
         address _owner,
-        address _weth,
-        address[] memory _executors
+        address[] memory _executors,
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         if (_executors.length > 0)
             addMultichainExecutorsInternal(_executors);
     }

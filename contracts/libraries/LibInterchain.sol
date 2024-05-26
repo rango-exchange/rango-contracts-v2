@@ -1,40 +1,25 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IUniswapV2.sol";
 import "../interfaces/IUniswapV3.sol";
+import "../interfaces/ICurve.sol";
 import "../interfaces/IWETH.sol";
-import "../interfaces/IRangoStargate.sol";
-import "../interfaces/IStargateReceiver.sol";
+import "../interfaces/Interchain.sol";
 import "../interfaces/IRangoMessageReceiver.sol";
+import "../interfaces/IRangoMiddlewareWhitelists.sol";
 import "./LibSwapper.sol";
 
 library LibInterchain {
 
     /// @dev keccak256("exchange.rango.library.interchain")
-    bytes32 internal constant BASE_MESSAGING_CONTRACT_NAMESPACE = hex"ff95014231b901d2b22bd69b4e83dacd84ac05e8c2d1e9fba0c7e2f3ed0db0eb";
+    bytes32 internal constant LIBINTERCHAIN_CONTRACT_NAMESPACE = hex"ff95014231b901d2b22bd69b4e83dacd84ac05e8c2d1e9fba0c7e2f3ed0db0eb";
 
     struct BaseInterchainStorage {
-        mapping (address => bool) whitelistMessagingContracts;
-    }
-
-    // @notice Adds a contract to the whitelisted messaging dApps that can be called
-    /// @param _dapp The address of dApp
-    function addMessagingDApp(address _dapp) internal {
-        BaseInterchainStorage storage baseStorage = getBaseMessagingContractStorage();
-        baseStorage.whitelistMessagingContracts[_dapp] = true;
-    }
-
-    /// @notice Removes a contract from dApps that can be called
-    /// @param _dapp The address of dApp
-    function removeMessagingDApp(address _dapp) internal {
-        BaseInterchainStorage storage baseStorage = getBaseMessagingContractStorage();
-
-        require(baseStorage.whitelistMessagingContracts[_dapp], "contract not whitelisted");
-        delete baseStorage.whitelistMessagingContracts[_dapp];
+        address whitelistsStorageContract;
     }
 
     /// @notice This event indicates that a dApp used Rango messaging (dAppMessage field) and we delivered the message to it
@@ -57,9 +42,32 @@ library LibInterchain {
 
     event ActionDone(Interchain.ActionType actionType, address contractAddress, bool success, string reason);
     event SubActionDone(Interchain.CallSubActionType subActionType, address contractAddress, bool success, string reason);
+    event WhitelistStorageAddressUpdated(address _oldAddress, address _newAddress);
 
-    function encodeIm(Interchain.RangoInterChainMessage memory im) external pure returns (bytes memory) {
-        return abi.encode(im);
+    /// @notice is used to check if a contract is whitelisted or not
+    /// @param _contractAddress the address of the contract to be checked
+    /// @return true if contract is whitelisted
+    function isContractWhitelisted(address _contractAddress) internal view returns(bool) {
+        address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
+        return IRangoMiddlewareWhitelists(whitelistsContractAddress).isContractWhitelisted(_contractAddress);
+    }
+
+    /// @notice is used to check if a DApp is whitelisted or not
+    /// @param _messagingContract the address of the DApp to be checked
+    /// @return true if DApp is whitelisted
+    function isMessagingContractWhitelisted(address _messagingContract) internal view returns(bool) {
+        address s = getLibInterchainStorage().whitelistsStorageContract;
+        return IRangoMiddlewareWhitelists(s).isMessagingContractWhitelisted(_messagingContract);
+    }
+
+    /// @notice updates the address of whitelists storage
+    /// @param _storageContract new address
+    function updateWhitelistsContractAddress(address _storageContract) internal {
+        require(_storageContract != address(0), "Invalid storage contract address");
+        BaseInterchainStorage storage baseStorage = getLibInterchainStorage();
+        address oldAddress = baseStorage.whitelistsStorageContract;
+        baseStorage.whitelistsStorageContract = _storageContract;
+        emit WhitelistStorageAddressUpdated(oldAddress, _storageContract);
     }
 
     function handleDestinationMessage(
@@ -67,25 +75,25 @@ library LibInterchain {
         uint _amount,
         Interchain.RangoInterChainMessage memory m
     ) internal returns (address, uint256 dstAmount, IRango.CrossChainOperationStatus status) {
-
-        LibSwapper.BaseSwapperStorage storage baseStorage = LibSwapper.getBaseSwapperStorage();
-        address sourceToken = m.bridgeRealOutput == LibSwapper.ETH && _token == baseStorage.WETH ? LibSwapper.ETH : _token;
+        address sourceToken = m.bridgeRealOutput == LibSwapper.ETH && _token == getWeth() ? LibSwapper.ETH : _token;
 
         bool ok = true;
         address receivedToken = sourceToken;
         dstAmount = _amount;
 
         if (m.actionType == Interchain.ActionType.UNI_V2)
-            (ok, dstAmount, receivedToken) = _handleUniswapV2(sourceToken, _amount, m, baseStorage);
+            (ok, dstAmount, receivedToken) = _handleUniswapV2(sourceToken, _amount, m);
         else if (m.actionType == Interchain.ActionType.UNI_V3)
-            (ok, dstAmount, receivedToken) = _handleUniswapV3(sourceToken, _amount, m, baseStorage);
+            (ok, dstAmount, receivedToken) = _handleUniswapV3(sourceToken, _amount, m);
         else if (m.actionType == Interchain.ActionType.CALL)
-            (ok, dstAmount, receivedToken) = _handleCall(sourceToken, _amount, m, baseStorage);
+            (ok, dstAmount, receivedToken) = _handleCall(sourceToken, _amount, m);
+        else if (m.actionType == Interchain.ActionType.CURVE)
+            (ok, dstAmount, receivedToken) = _handleCurve(sourceToken, _amount, m);
         else if (m.actionType != Interchain.ActionType.NO_ACTION)
             revert("Unsupported actionType");
 
         if (ok && m.postAction != Interchain.CallSubActionType.NO_ACTION) {
-            (ok, dstAmount, receivedToken) = _handlePostAction(receivedToken, dstAmount, m.postAction, baseStorage);
+            (ok, dstAmount, receivedToken) = _handlePostAction(receivedToken, dstAmount, m.postAction);
         }
 
         status = ok ? IRango.CrossChainOperationStatus.Succeeded : IRango.CrossChainOperationStatus.RefundInDestination;
@@ -106,11 +114,11 @@ library LibInterchain {
     function _handleUniswapV2(
         address _token,
         uint _amount,
-        Interchain.RangoInterChainMessage memory _message,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        Interchain.RangoInterChainMessage memory _message
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         Interchain.UniswapV2Action memory action = abi.decode((_message.action), (Interchain.UniswapV2Action));
-        if (baseStorage.whitelistContracts[action.dexAddress] != true) {
+        address weth = getWeth();
+        if (isContractWhitelisted(action.dexAddress) != true) {
             // "Dex address is not whitelisted"
             return (false, _amount, _token);
         }
@@ -119,14 +127,14 @@ library LibInterchain {
             return (false, _amount, _token);
         }
 
-        bool shouldDeposit = _token == LibSwapper.ETH && action.path[0] == baseStorage.WETH;
+        bool shouldDeposit = _token == LibSwapper.ETH && action.path[0] == weth;
         if (!shouldDeposit) {
             if (_token != action.path[0]) {
                 // "bridged token must be the same as the first token in destination swap path"
                 return (false, _amount, _token);
             }
         } else {
-            IWETH(baseStorage.WETH).deposit{value : _amount}();
+            IWETH(weth).deposit{value : _amount}();
         }
 
         LibSwapper.approve(action.path[0], action.dexAddress, _amount);
@@ -147,12 +155,12 @@ library LibInterchain {
             // Note: instead of using return amounts of swapExactTokensForTokens,
             //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees
             uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
-            SafeERC20.safeApprove(IERC20(action.path[0]), action.dexAddress, 0);
+            SafeERC20.forceApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "Uniswap-V2 call failed");
-            SafeERC20.safeApprove(IERC20(action.path[0]), action.dexAddress, 0);
-            return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
+            SafeERC20.forceApprove(IERC20(action.path[0]), action.dexAddress, 0);
+            return (false, _amount, shouldDeposit ? weth : _token);
         }
     }
 
@@ -164,52 +172,50 @@ library LibInterchain {
     function _handleUniswapV3(
         address _token,
         uint _amount,
-        Interchain.RangoInterChainMessage memory _message,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        Interchain.RangoInterChainMessage memory _message
     ) private returns (bool, uint256, address) {
-        Interchain.UniswapV3ActionExactInputSingleParams memory action = abi
-            .decode((_message.action), (Interchain.UniswapV3ActionExactInputSingleParams));
+        Interchain.UniswapV3ActionExactInputParams memory action = abi
+            .decode((_message.action), (Interchain.UniswapV3ActionExactInputParams));
 
-        if (baseStorage.whitelistContracts[action.dexAddress] != true) {
+        if (isContractWhitelisted(action.dexAddress) != true) {
             // "Dex address is not whitelisted"
             return (false, _amount, _token);
         }
 
-        bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == baseStorage.WETH;
+        bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == getWeth();
         if (!shouldDeposit) {
             if (_token != action.tokenIn) {
                 // "bridged token must be the same as the tokenIn in uniswapV3"
                 return (false, _amount, _token);
             }
         } else {
-            IWETH(baseStorage.WETH).deposit{value : _amount}();
+            IWETH(getWeth()).deposit{value : _amount}();
         }
 
         LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
-        uint toBalanceBefore = LibSwapper.getBalanceOf(action.tokenOut);
+
+        address toToken = action.tokenOut;
+        uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
 
         try
-            IUniswapV3(action.dexAddress).exactInputSingle(IUniswapV3.ExactInputSingleParams({
-                tokenIn : action.tokenIn,
-                tokenOut : action.tokenOut,
-                fee : action.fee,
+            IUniswapV3(action.dexAddress).exactInput(IUniswapV3.ExactInputParams({
+                path : action.encodedPath,
                 recipient : address(this),
                 deadline : action.deadline,
                 amountIn : _amount,
-                amountOutMinimum : action.amountOutMinimum,
-                sqrtPriceLimitX96 : action.sqrtPriceLimitX96
+                amountOutMinimum : action.amountOutMinimum
             }))
         returns (uint) {
             emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
-            // Note: instead of using return amounts of exactInputSingle,
+            // Note: instead of using return amounts of exactInput,
             //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
-            uint toBalanceAfter = LibSwapper.getBalanceOf(action.tokenOut);
-            SafeERC20.safeApprove(IERC20(action.tokenIn), action.dexAddress, 0);
-            return (true, toBalanceAfter - toBalanceBefore, action.tokenOut);
+            uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+            SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+            return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
             emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
-            SafeERC20.safeApprove(IERC20(action.tokenIn), action.dexAddress, 0);
-            return (false, _amount, shouldDeposit ? baseStorage.WETH : _token);
+            SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+            return (false, _amount, shouldDeposit ? getWeth() : _token);
         }
     }
 
@@ -221,16 +227,15 @@ library LibInterchain {
     function _handleCall(
         address _token,
         uint _amount,
-        Interchain.RangoInterChainMessage memory _message,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        Interchain.RangoInterChainMessage memory _message
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         Interchain.CallAction memory action = abi.decode((_message.action), (Interchain.CallAction));
 
-        if (baseStorage.whitelistContracts[action.target] != true) {
+        if (isContractWhitelisted(action.target) != true) {
             // "Action.target is not whitelisted"
             return (false, _amount, _token);
         }
-        if (baseStorage.whitelistContracts[action.spender] != true) {
+        if (isContractWhitelisted(action.spender) != true) {
             // "Action.spender is not whitelisted"
             return (false, _amount, _token);
         }
@@ -242,13 +247,13 @@ library LibInterchain {
                 // "Cannot wrap non-native"
                 return (false, _amount, _token);
             }
-            if (action.tokenIn != baseStorage.WETH) {
+            if (action.tokenIn != getWeth()) {
                 // "action.tokenIn must be WETH"
                 return (false, _amount, _token);
             }
-            (ok, amountOut, sourceToken) = _handleWrap(_token, _amount, baseStorage);
+            (ok, amountOut, sourceToken) = _handleWrap(_token, _amount);
         } else if (action.preAction == Interchain.CallSubActionType.UNWRAP) {
-            if (_token != baseStorage.WETH) {
+            if (_token != getWeth()) {
                 // "Cannot unwrap non-WETH"
                 return (false, _amount, _token);
             }
@@ -256,7 +261,7 @@ library LibInterchain {
                 // "action.tokenIn must be ETH"
                 return (false, _amount, _token);
             }
-            (ok, amountOut, sourceToken) = _handleUnwrap(_token, _amount, baseStorage);
+            (ok, amountOut, sourceToken) = _handleUnwrap(_token, _amount);
         } else {
             ok = true;
             if (action.tokenIn != _token) {
@@ -273,10 +278,21 @@ library LibInterchain {
         uint value = sourceToken == LibSwapper.ETH ? _amount : 0;
         uint toBalanceBefore = LibSwapper.getBalanceOf(_message.toToken);
 
+        if (action.overwriteAmount == true) {
+            bytes memory data = action.callData;
+            uint256 index = action.startIndexForAmount;
+            // Avoid malicious overwriting of function sig or invalid location:
+            if (index < 4 || index > (data.length - 32))
+                return (false, _amount, _token);
+            assembly {
+                mstore(add(data, add(index,32)), _amount)
+            }
+        }
+
         (bool success, bytes memory ret) = action.target.call{value: value}(action.callData);
 
         if (sourceToken != LibSwapper.ETH)
-            SafeERC20.safeApprove(IERC20(sourceToken), action.spender, 0);
+            SafeERC20.forceApprove(IERC20(sourceToken), action.spender, 0);
 
         if (success) {
             emit ActionDone(Interchain.ActionType.CALL, action.target, true, "");
@@ -288,6 +304,64 @@ library LibInterchain {
         }
     }
 
+    /// @notice Performs a swap operation using Curve fi
+    /// @param _message The interchain message that contains the swap info
+    /// @param _amount The amount of input token
+    /// @return ok Indicates that the swap operation was success or fail
+    /// @return amountOut If ok = true, amountOut is the output amount of the swap
+    function _handleCurve(
+        address _token,
+        uint _amount,
+        Interchain.RangoInterChainMessage memory _message
+    ) private returns (bool ok, uint256 amountOut, address outToken) {
+        Interchain.CurveAction memory action = abi.decode((_message.action), (Interchain.CurveAction));
+        if (isContractWhitelisted(action.routerContractAddress) != true) {
+            // "Dex address is not whitelisted"
+            return (false, _amount, _token);
+        }
+
+        uint value = 0;
+        if (_token == LibSwapper.ETH) {
+            if (action.routes[0] != address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) {
+                return (false, _amount, _token);
+            }
+            value = _amount;
+        } else {
+            if (_token != action.routes[0]) {
+                return (false, _amount, _token);
+            }
+            LibSwapper.approve(_token, action.routerContractAddress, _amount);
+        }
+
+        address toToken = action.toToken;
+        uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
+
+        try
+            ICurve(action.routerContractAddress).exchange{value: value}(
+                action.routes,
+                action.swap_params,
+                _amount,
+                action.expected,
+                action.pools,
+                address(this)
+            )
+        returns (uint256) {
+            emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, true, "");
+            uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+            if (_token != LibSwapper.ETH) {
+                SafeERC20.forceApprove(IERC20(_token), action.routerContractAddress, 0);
+            }
+            return (true, toBalanceAfter - toBalanceBefore, toToken);
+        } catch {
+            emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, true, "Curve call failed");
+            if (_token != LibSwapper.ETH) {
+                SafeERC20.forceApprove(IERC20(_token), action.routerContractAddress, 0);
+            }
+            return (false, _amount, _token);
+        }
+    }
+
+
     /// @notice Performs a uniswap-v2 operation
     /// @param _postAction The type of action to perform such as WRAP, UNWRAP
     /// @param _amount The amount of input token
@@ -296,8 +370,7 @@ library LibInterchain {
     function _handlePostAction(
         address _token,
         uint _amount,
-        Interchain.CallSubActionType _postAction,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        Interchain.CallSubActionType _postAction
     ) private returns (bool ok, uint256 amountOut, address outToken) {
 
         if (_postAction == Interchain.CallSubActionType.WRAP) {
@@ -305,13 +378,13 @@ library LibInterchain {
                 // "Cannot wrap non-native"
                 return (false, _amount, _token);
             }
-            (ok, amountOut, outToken) = _handleWrap(_token, _amount, baseStorage);
+            (ok, amountOut, outToken) = _handleWrap(_token, _amount);
         } else if (_postAction == Interchain.CallSubActionType.UNWRAP) {
-            if (_token != baseStorage.WETH) {
+            if (_token != getWeth()) {
                 // "Cannot unwrap non-WETH"
                 return (false, _amount, _token);
             }
-            (ok, amountOut, outToken) = _handleUnwrap(_token, _amount, baseStorage);
+            (ok, amountOut, outToken) = _handleUnwrap(_token, _amount);
         } else {
             // revert("Unsupported post-action");
             return (false, _amount, _token);
@@ -327,18 +400,17 @@ library LibInterchain {
     /// @return amountOut If ok = true, amountOut is the output amount of the swap
     function _handleWrap(
         address _token,
-        uint _amount,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        uint _amount
     ) private returns (bool ok, uint256 amountOut, address outToken) {
         if (_token != LibSwapper.ETH) {
             // "Cannot wrap non-ETH tokens"
             return (false, _amount, _token);
         }
 
-        IWETH(baseStorage.WETH).deposit{value: _amount}();
-        emit SubActionDone(Interchain.CallSubActionType.WRAP, baseStorage.WETH, true, "");
+        IWETH(getWeth()).deposit{value: _amount}();
+        emit SubActionDone(Interchain.CallSubActionType.WRAP, getWeth(), true, "");
 
-        return (true, _amount, baseStorage.WETH);
+        return (true, _amount, getWeth());
     }
 
     /// @notice Performs a WETH.deposit operation
@@ -347,15 +419,14 @@ library LibInterchain {
     /// @return amountOut If ok = true, amountOut is the output amount of the swap
     function _handleUnwrap(
         address _token,
-        uint _amount,
-        LibSwapper.BaseSwapperStorage storage baseStorage
+        uint _amount
     ) private returns (bool ok, uint256 amountOut, address outToken) {
-        if (_token != baseStorage.WETH)
+        if (_token != getWeth())
             // revert("Non-WETH tokens unwrapped");
             return (false, _amount, _token);
 
-        IWETH(baseStorage.WETH).withdraw(_amount);
-        emit SubActionDone(Interchain.CallSubActionType.UNWRAP, baseStorage.WETH, true, "");
+        IWETH(getWeth()).withdraw(_amount);
+        emit SubActionDone(Interchain.CallSubActionType.UNWRAP, getWeth(), true, "");
 
         return (true, _amount, LibSwapper.ETH);
     }
@@ -377,7 +448,6 @@ library LibInterchain {
     ) internal {
         bool thereIsAMessage = _dAppReceiverContract != LibSwapper.ETH;
         address immediateReceiver = thereIsAMessage ? _dAppReceiverContract : _receiver;
-        BaseInterchainStorage storage messagingStorage = getBaseMessagingContractStorage();
         emit LibSwapper.SendToken(_token, _amount, immediateReceiver);
 
         if (_token == LibSwapper.ETH) {
@@ -388,7 +458,7 @@ library LibInterchain {
 
         if (thereIsAMessage) {
             require(
-                messagingStorage.whitelistMessagingContracts[_dAppReceiverContract],
+                isMessagingContractWhitelisted(_dAppReceiverContract),
                 "3rd-party contract not whitelisted"
             );
 
@@ -404,10 +474,24 @@ library LibInterchain {
         }
     }
 
+    /// @notice used for abi encoding
+    /// @param im an instance of RangoInterChainMessage struct
+    /// @return encoded format of the struct instance
+    function encodeIm(Interchain.RangoInterChainMessage memory im) external pure returns (bytes memory) {
+        return abi.encode(im);
+    }
+
+    /// @notice get wrapped token address on the current chain from shared storage contract
+    /// @return WETH address
+    function getWeth() internal view returns(address) {
+        address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
+        return IRangoMiddlewareWhitelists(whitelistsContractAddress).getWeth();
+    }
+
     /// @notice A utility function to fetch storage from a predefined random slot using assembly
     /// @return s The storage object
-    function getBaseMessagingContractStorage() internal pure returns (BaseInterchainStorage storage s) {
-        bytes32 namespace = BASE_MESSAGING_CONTRACT_NAMESPACE;
+    function getLibInterchainStorage() internal pure returns (BaseInterchainStorage storage s) {
+        bytes32 namespace = LIBINTERCHAIN_CONTRACT_NAMESPACE;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             s.slot := namespace

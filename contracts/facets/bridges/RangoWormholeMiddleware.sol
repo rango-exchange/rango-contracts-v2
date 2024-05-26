@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../libraries/LibInterchain.sol";
 import "../../utils/ReentrancyGuard.sol";
@@ -28,9 +28,9 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
     function initWormholeMiddleware(
         address _owner,
         address _wormholeRouter,
-        address _weth
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         updateWormholeRouterAddressInternal(_wormholeRouter);
     }
 

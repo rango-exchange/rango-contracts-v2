@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../interfaces/IRango.sol";
 import "../../interfaces/IAxelarExecutable.sol";
@@ -22,9 +22,9 @@ contract RangoSymbiosisMiddleware is IRango, ReentrancyGuard, RangoBaseInterchai
         address _owner,
         address _gatewayAddress,
         address _routerAddress,
-        address _weth
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         updateSymbiosisGatewayInternal(_routerAddress, _gatewayAddress);
     }
 

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibInterchain.sol";
+import "../../interfaces/IRangoMiddlewareWhitelists.sol";
 
 // @title The base contract to be used as a parent of middleware classes
 // @author George
@@ -12,38 +13,10 @@ contract RangoBaseInterchainMiddleware {
     bytes32 internal constant BASE_MIDDLEWARE_CONTRACT_NAMESPACE = hex"ad914d4300c64e1902ca499875cd8a76ae717047bcfaa9e806ff7ea4f6911268";
 
     struct BaseInterchainMiddlewareStorage {
-        address rangoDiamond;
         address owner;
     }
 
-    struct whitelistRequest {
-        address contractAddress;
-        bytes4[] methodIds;
-    }
-
-    constructor(){updateOwnerInternal(tx.origin);}
-
-    function initBaseMiddleware(
-        address _owner,
-        address _rangoDiamond,
-        address _weth
-    ) public onlyOwner {
-        require(_owner != address(0));
-        updateOwnerInternal(_owner);
-        updateRangoDiamondInternal(_rangoDiamond);
-        LibSwapper.setWeth(_weth);
-    }
-
-
     /// Events
-    /// @notice Emits when the rango diamond address is updated
-    /// @param oldAddress The previous address
-    /// @param newAddress The new address
-    event RangoDiamondAddressUpdated(address oldAddress, address newAddress);
-    /// @notice Emits when the weth address is updated
-    /// @param oldAddress The previous address
-    /// @param newAddress The new address
-    event WethAddressUpdated(address oldAddress, address newAddress);
     /// @notice Emits when the owner is updated
     /// @param previousOwner The previous owner
     /// @param newOwner The new owner
@@ -52,26 +25,17 @@ contract RangoBaseInterchainMiddleware {
     /// @param _token The address of refunded token, 0x000..00 address for native token
     /// @param _amount The amount that is refunded
     event Refunded(address _token, uint _amount);
-    /// @notice Notifies that a new contract is whitelisted
-    /// @param _address The address of the contract
-    event ContractWhitelisted(address _address);
-    /// @notice Notifies that a new contract is whitelisted
-    /// @param contractAddress The address of the contract
-    /// @param methods The method signatures that are whitelisted for a contractAddress
-    event ContractAndMethodsWhitelisted(address contractAddress, bytes4[] methods);
-    /// @notice Notifies that a new contract is blacklisted
-    /// @param _address The address of the contract
-    event ContractBlacklisted(address _address);
-    /// @notice Notifies that a contract is blacklisted and the given methods are removed
-    /// @param contractAddress The address of the contract
-    /// @param methods The method signatures that are blacklisted for the given contractAddress
-    event ContractAndMethodsBlacklisted(address contractAddress, bytes4[] methods);
-    /// @notice Notifies that a new contract is whitelisted
-    /// @param _dapp The address of the contract
-    event MessagingDAppWhitelisted(address _dapp);
-    /// @notice Notifies that a new contract is blacklisted
-    /// @param _dapp The address of the contract
-    event MessagingDAppBlacklisted(address _dapp);
+
+    constructor(){updateOwnerInternal(tx.origin);}
+
+    function initBaseMiddleware(
+        address _owner,
+        address _whitelistsContract
+    ) public onlyOwner {
+        require(_owner != address(0));
+        updateOwnerInternal(_owner);
+        LibInterchain.updateWhitelistsContractAddress(_whitelistsContract);
+    }
 
     /// @notice used to limit access only to owner
     modifier onlyOwner() {
@@ -81,29 +45,42 @@ contract RangoBaseInterchainMiddleware {
 
     /// @notice used to limit access only to rango diamond
     modifier onlyDiamond() {
-        require(msg.sender == getBaseInterchainMiddlewareStorage().rangoDiamond, "should be called only from diamond");
+        // only used by CBridge for now
+        {
+            address s = LibInterchain.getLibInterchainStorage().whitelistsStorageContract;
+            address rangoDiamond = IRangoMiddlewareWhitelists(s).getRangoDiamond();
+            require(msg.sender == rangoDiamond, "should be called only from diamond");
+        }
         _;
     }
 
     /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
     receive() external payable {}
 
-    /// Administration & Control
+    /// @notice returns owner of the contract
+    /// @return owner address
+    function getOwner() external view returns (address) {
+        BaseInterchainMiddlewareStorage storage s = getBaseInterchainMiddlewareStorage();
+        return s.owner;
+    }
 
-    /// @notice Updates the address of rango diamond contract
-    /// @param newAddress The new address of diamond contract
-    function updateRangoDiamondAddress(address newAddress) external onlyOwner {
-        updateRangoDiamondInternal(newAddress);
+    /// @notice returns address of whitelists storage saved in LibInterchain
+    /// @return whitelistsStorageContract address
+    function getWhitelistsStorageContractAddress() external view returns (address) {
+        return LibInterchain.getLibInterchainStorage().whitelistsStorageContract;
     }
-    /// @notice Updates the address of weth contract
-    /// @param newAddress The new address of weth contract
-    function updateWethAddress(address newAddress) external onlyOwner {
-        LibSwapper.setWeth(newAddress);
-    }
+
+    /// Administration & Control
     /// @notice Updates the address of owner
     /// @param newAddress The new address of owner
     function updateOwner(address newAddress) external onlyOwner {
         updateOwnerInternal(newAddress);
+    }
+
+    /// @notice updates the address of whitelists storage contract address
+    /// @param newAddress the new address for whitelists storage
+    function updateWhitelistsContractAddress(address newAddress) external onlyOwner {
+        LibInterchain.updateWhitelistsContractAddress(newAddress);
     }
 
     /// @notice Transfers an ERC20 token from this contract to msg.sender
@@ -134,67 +111,7 @@ contract RangoBaseInterchainMiddleware {
         emit Refunded(LibSwapper.ETH, _amount);
     }
 
-    /// @notice Adds a list of contracts to the whitelisted DEXes that can be called
-    /// @param req The requests for whitelisting contracts and methods
-    function addWhitelistContractMiddleWare(whitelistRequest[] calldata req) external onlyOwner {
-        for (uint i = 0; i < req.length; i++) {
-            LibSwapper.addMethodWhitelists(req[i].contractAddress, req[i].methodIds);
-            emit ContractAndMethodsWhitelisted(req[i].contractAddress, req[i].methodIds);
-            emit ContractWhitelisted(req[i].contractAddress);
-        }
-    }
-
-    /// @notice Removes a contract from the whitelisted DEXes
-    /// @param contractAddress The address of the DEX or dApp
-    function removeWhitelistMiddleWare(address contractAddress) external onlyOwner {
-        LibSwapper.removeWhitelist(contractAddress);
-        emit ContractBlacklisted(contractAddress);
-    }
-
-    /// @notice Removes a contract and given method ids
-    /// @param contractAddress The address of the contract
-    /// @param methodIds The methods to be removed alongside the given contract
-    function removeContractAndMethodIdsFromWhitelist(
-        address contractAddress,
-        bytes4[] calldata methodIds
-    ) external onlyOwner {
-        LibSwapper.removeWhitelist(contractAddress);
-        emit ContractBlacklisted(contractAddress);
-        for (uint i = 0; i < methodIds.length; i++) {
-            LibSwapper.removeMethodWhitelist(contractAddress, methodIds[i]);
-        }
-        if (methodIds.length > 0) {
-            emit ContractAndMethodsBlacklisted(contractAddress, methodIds);
-        }
-    }
-
-    /// @notice Adds a list of contracts to the whitelisted messaging dApps that can be called
-    /// @param _dapps The addresses of dApps
-    function addMessagingDAppsMiddleWare(address[] calldata _dapps) external onlyOwner {
-        address dapp;
-        for (uint i = 0; i < _dapps.length; i++) {
-            dapp = _dapps[i];
-            LibInterchain.addMessagingDApp(dapp);
-            emit MessagingDAppWhitelisted(dapp);
-        }
-    }
-
-    /// @notice Removes a contract from dApps that can be called
-    /// @param _dapp The address of dApp
-    function removeMessagingDAppContractMiddleWare(address _dapp) external onlyOwner {
-        LibInterchain.removeMessagingDApp(_dapp);
-        emit MessagingDAppBlacklisted(_dapp);
-    }
-
-
     /// Internal and Private functions
-    function updateRangoDiamondInternal(address newAddress) private {
-        BaseInterchainMiddlewareStorage storage s = getBaseInterchainMiddlewareStorage();
-        address oldAddress = s.rangoDiamond;
-        s.rangoDiamond = newAddress;
-        emit RangoDiamondAddressUpdated(oldAddress, newAddress);
-    }
-
     function updateOwnerInternal(address newAddress) private {
         BaseInterchainMiddlewareStorage storage s = getBaseInterchainMiddlewareStorage();
         address oldAddress = s.owner;

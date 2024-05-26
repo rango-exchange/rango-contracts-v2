@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 /// @title The root contract that handles Rango's interaction with MultichainOrg bridge
 /// @author George

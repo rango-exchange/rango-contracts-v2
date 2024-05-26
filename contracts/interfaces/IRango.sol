@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 interface IRango {
     struct RangoBridgeRequest {
@@ -13,7 +13,7 @@ interface IRango {
         uint16 dAppTag;
     }
 
-    enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge}
+    enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge, CCTP, Connext, NitroAssetForwarder, DeBridge, YBridge, Swft, Orbiter}
 
     /// @notice Status of cross-chain swap
     /// @param Succeeded The whole process is success and end-user received the desired token in the destination

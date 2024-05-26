@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.16;
+pragma solidity 0.8.25;
 
 import "../../libraries/LibInterchain.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../base/RangoBaseInterchainMiddleware.sol";
 import "../../interfaces/IAcrossMessageHandler.sol";
-import "../../interfaces/IAcrossSpokePool.sol";
 
-/// @title The middleware contract that handles Rango's receive messages from acrs.
+/// @title The middleware contract that handles Rango's receive messages from across.
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMiddleware, AcrossMessageHandler {
@@ -22,10 +21,10 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
 
     function initAcrossMiddleware(
         address _owner,
-        address _weth,
-        address[] memory _whitelistedCallers
+        address[] memory _whitelistedCallers,
+        address whitelistsContract
     ) external onlyOwner {
-        initBaseMiddleware(_owner, address(0), _weth);
+        initBaseMiddleware(_owner, whitelistsContract);
         if (_whitelistedCallers.length > 0)
             addWhitelistedCallersInternal(_whitelistedCallers);
     }
@@ -58,12 +57,18 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         removeWhitelistedCallersInternal(_addresses);
     }
 
+    /// @notice This function will be deprecated later and will no longer be used. TODO: Should be removed later.
     function handleAcrossMessage(
         address tokenSent,
         uint256 amount,
+        bool fillCompleted,
+        address relayer,
         bytes memory message
-    ) external payable onlyWhitelistedCallers {
-        // Note: When this function is called, the caller have already sent erc20 token or native token to this contract.
+    ) external onlyWhitelistedCallers {
+        if (fillCompleted == false) {
+            return;
+        }
+        // Note: When this function is called, the caller have already sent erc20 token.
         //       This function is not called with native token, and only receives erc20 tokens (including WETH)
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
         (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(tokenSent, amount, m);
@@ -79,6 +84,27 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         );
     }
 
+    function handleV3AcrossMessage(
+        address tokenSent,
+        uint256 amount,
+        address relayer,
+        bytes memory message
+    ) external onlyWhitelistedCallers {
+        // Note: When this function is called, the caller have already sent erc20 token.
+        //       This function is not called with native token, and only receives erc20 tokens (including WETH)
+        Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
+        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(tokenSent, amount, m);
+
+        emit RangoBridgeCompleted(
+            m.requestId,
+            receivedToken,
+            m.originalSender,
+            m.recipient,
+            dstAmount,
+            status,
+            m.dAppTag
+        );
+    }
 
     /// Private and Internal
     function addWhitelistedCallersInternal(address[] memory _executors) private {
@@ -100,7 +126,6 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         }
         emit AcrossWhitelistedCallersRemoved(_executors);
     }
-
 
     /// @dev fetch local storage
     function getRangoAcrossMiddlewareStorage() private pure returns (RangoAcrossMiddlewareStorage storage s) {
