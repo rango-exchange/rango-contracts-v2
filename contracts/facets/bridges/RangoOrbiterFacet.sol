@@ -84,7 +84,9 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
             false,
             false,
             uint8(BridgeType.Orbiter),
-            request.dAppTag);
+            request.dAppTag,
+            request.dAppName
+        );
     }
 
     /// @notice starts bridging through Orbiter bridge
@@ -117,7 +119,8 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
             false,
             false,
             uint8(BridgeType.Orbiter),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

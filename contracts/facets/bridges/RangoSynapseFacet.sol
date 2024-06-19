@@ -55,7 +55,8 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
             false,
             false,
             uint8(BridgeType.Synapse),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -86,7 +87,8 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
             false,
             false,
             uint8(BridgeType.Synapse),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

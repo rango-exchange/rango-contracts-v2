@@ -89,7 +89,8 @@ contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
             false,
             false,
             uint8(BridgeType.CCTP),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -116,7 +117,8 @@ contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
             false,
             false,
             uint8(BridgeType.CCTP),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

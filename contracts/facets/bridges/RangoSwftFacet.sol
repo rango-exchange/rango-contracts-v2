@@ -72,7 +72,9 @@ contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
             false,
             false,
             uint8(BridgeType.Swft),
-            request.dAppTag);
+            request.dAppTag,
+            request.dAppName
+        );
     }
 
     /// @notice starts bridging through Swft bridge
@@ -104,7 +106,8 @@ contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
             false,
             false,
             uint8(BridgeType.Swft),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

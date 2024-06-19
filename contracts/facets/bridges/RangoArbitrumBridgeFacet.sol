@@ -53,18 +53,16 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
         IRangoArbitrum.ArbitrumBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint out;
-        uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
             out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - bridgeRequest.cost;
+            doArbitrumBridge(bridgeRequest, request.toToken, out - bridgeRequest.cost);
         }
         else {
             out = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.cost);
-            bridgeAmount = out;
-        }
-        doArbitrumBridge(bridgeRequest, request.toToken, bridgeAmount);
+            doArbitrumBridge(bridgeRequest, request.toToken, out);
+        }        
 
         // event emission
         emit RangoBridgeInitiated(
@@ -76,7 +74,8 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
             false,
             false,
             uint8(BridgeType.ArbitrumBridge),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -108,7 +107,8 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
             false,
             false,
             uint8(BridgeType.ArbitrumBridge),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

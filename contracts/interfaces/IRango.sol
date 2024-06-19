@@ -11,6 +11,7 @@ interface IRango {
         address payable affiliatorAddress;
         uint destinationExecutorFee;
         uint16 dAppTag;
+        string dAppName;
     }
 
     enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge, CCTP, Connext, NitroAssetForwarder, DeBridge, YBridge, Swft, Orbiter}
@@ -36,7 +37,8 @@ interface IRango {
         bool hasInterchainMessage,
         bool hasDestinationSwap,
         uint8 indexed bridgeId,
-        uint16 indexed dAppTag
+        uint16 indexed dAppTag,
+        string dAppName
     );
 
     event RangoBridgeCompleted(

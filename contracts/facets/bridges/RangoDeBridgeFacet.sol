@@ -36,10 +36,10 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
     event DeBridgeSendTokenCalled(uint256 _dstChainId, address _token, string _receiver, uint256 _amount, DeBridgeBridgeType _type);
 
     /// @notice Initialize the contract.
-    /// @param deBridgeStorage The address of whitelist contract for bridge
-    function initDeBridge(DeBridgeStorage calldata deBridgeStorage) external {
+    /// @param dlnSourceAddress The address of dlnSource contract
+    function initDeBridge(address dlnSourceAddress) external {
         LibDiamond.enforceIsContractOwner();
-        updateDlnSourceInternal(deBridgeStorage.dlnSourceAddress);
+        updateDlnSourceInternal(dlnSourceAddress);
     }
 
     /// @notice Updates the address of dlnSource contract
@@ -58,17 +58,14 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
         LibSwapper.Call[] calldata calls,
         DeBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
-        uint out;
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - bridgeRequest.protocolFee;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0) - bridgeRequest.protocolFee;
         }
         else {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.protocolFee);
-            bridgeAmount = out;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.protocolFee);
         }
 
         // update giveAmount using actual output amount of swaps.
@@ -86,7 +83,8 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
             bridgeRequest.bridgeType == DeBridgeBridgeType.TRANSFER_WITH_MESSAGE,
             bridgeRequest.hasDestSwap,
             uint8(BridgeType.DeBridge),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -119,7 +117,8 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
             request.bridgeType == DeBridgeBridgeType.TRANSFER_WITH_MESSAGE,
             request.hasDestSwap,
             uint8(BridgeType.DeBridge),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 
@@ -137,6 +136,10 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
 
         require(s.dlnSourceAddress != LibSwapper.ETH, 'DlnSource contract address not set');
         require(block.chainid != dstChainId, 'Invalid dst Chain! Cannot bridge to the same network.');
+
+        if (token != LibSwapper.ETH) {
+            LibSwapper.approveMax(token, s.dlnSourceAddress, amount);
+        }
 
         IDlnSource(s.dlnSourceAddress).createSaltedOrder{value: token == LibSwapper.ETH ? amount + request.protocolFee : request.protocolFee}(
             request.orderCreation,

@@ -61,14 +61,12 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
         LibSwapper.Call[] calldata calls,
         ConnextBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
-        uint out;
         uint bridgeAmount;
 
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - bridgeRequest.relayerFee;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0)  - bridgeRequest.relayerFee;
         } else {
             bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.feeInNative ? bridgeRequest.relayerFee : 0);
         }
@@ -80,11 +78,7 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
         }
         
         doConnextBridge(bridgeRequest, request.toToken, bridgeAmount);
-        bool hasDestSwap = false;
-        if (bridgeRequest.bridgeType == ConnextBridgeType.TRANSFER_WITH_MESSAGE) {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
+        
         // event emission
         emit RangoBridgeInitiated(
             request.requestId,
@@ -93,9 +87,10 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
             bridgeRequest.receiver,
             bridgeRequest.toChainId,
             bridgeRequest.bridgeType == ConnextBridgeType.TRANSFER_WITH_MESSAGE,
-            hasDestSwap,
+            false,
             uint8(BridgeType.Connext),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -137,7 +132,8 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
             request.bridgeType == ConnextBridgeType.TRANSFER_WITH_MESSAGE,
             hasDestSwap,
             uint8(BridgeType.Connext),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

@@ -54,36 +54,31 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         LibSwapper.Call[] calldata calls,
         CBridgeBridgeRequest calldata bridgeRequest
     ) external payable nonReentrant {
-        address payable middleware = getCBridgeStorage().rangoCBridgeMiddlewareAddress;
-        require(middleware != LibSwapper.ETH, "Middleware not set");
+        require(getCBridgeStorage().rangoCBridgeMiddlewareAddress != LibSwapper.ETH, "Middleware not set");
         // transfer tokens to middleware if necessary
-        uint sgnFee = bridgeRequest.sgnFee;
-        uint value = sgnFee;
         uint bridgeAmount;
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
             uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - sgnFee;
-            // value should not decrease sgnFee, we should send full value to the middleware
-            value = out;
+            bridgeAmount = out - bridgeRequest.sgnFee;
         }
         else {
-            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, sgnFee);
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.sgnFee);
         }
         // transfer tokens to middleware if necessary
         if (request.toToken != LibSwapper.ETH) {
-            SafeERC20.safeTransfer(IERC20(request.toToken), middleware, bridgeAmount);
+            SafeERC20.safeTransfer(IERC20(request.toToken), getCBridgeStorage().rangoCBridgeMiddlewareAddress, bridgeAmount);
         }
 
         if (bridgeRequest.bridgeType == CBridgeBridgeType.TRANSFER) {
-            require(sgnFee == 0, "sgnFee should be 0 for TRANSFER");
-            RangoCBridgeMiddleware(middleware).doSend{value : value}(
-                bridgeRequest.receiver,
-                request.toToken,
-                bridgeAmount,
-                bridgeRequest.dstChainId,
-                bridgeRequest.nonce,
-                bridgeRequest.maxSlippage);
-
+            require(bridgeRequest.sgnFee == 0, "sgnFee should be 0 for TRANSFER");
+            RangoCBridgeMiddleware(getCBridgeStorage().rangoCBridgeMiddlewareAddress).doSend{value : request.toToken == LibSwapper.ETH ? bridgeAmount : 0}(
+                    bridgeRequest.receiver,
+                    request.toToken,
+                    bridgeAmount,
+                    bridgeRequest.dstChainId,
+                    bridgeRequest.nonce,
+                    bridgeRequest.maxSlippage
+                );
             // event emission
             emit RangoBridgeInitiated(
                 request.requestId,
@@ -94,29 +89,29 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
                 false,
                 false,
                 uint8(BridgeType.CBridge),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         } else {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
             // CBridgeIM doesn't support native tokens and we should wrap it.
-            address bridgeImToken = request.toToken;
             if (request.toToken == LibSwapper.ETH) {
-                bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
+                address bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
                 IWETH(bridgeImToken).deposit{value : bridgeAmount}();
-                SafeERC20.safeTransfer(IERC20(bridgeImToken), middleware, bridgeAmount);
+                SafeERC20.safeTransfer(IERC20(bridgeImToken), getCBridgeStorage().rangoCBridgeMiddlewareAddress, bridgeAmount);
             }
-            require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
-            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : sgnFee}(
-                bridgeImToken,
-                bridgeAmount,
-                bridgeRequest.receiver,
-                bridgeRequest.dstChainId,
-                bridgeRequest.nonce,
-                bridgeRequest.maxSlippage,
-                sgnFee,
-                imMessage
-            );
-
+            { 
+                Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
+                RangoCBridgeMiddleware(getCBridgeStorage().rangoCBridgeMiddlewareAddress).doCBridgeIM{value : bridgeRequest.sgnFee}(
+                    request.toToken == LibSwapper.ETH ? LibSwapper.getBaseSwapperStorage().WETH : request.toToken,
+                    bridgeAmount,
+                    bridgeRequest.receiver,
+                    bridgeRequest.dstChainId,
+                    bridgeRequest.nonce,
+                    bridgeRequest.maxSlippage,
+                    bridgeRequest.sgnFee,
+                    imMessage
+                );
+            }
             // event emission
             emit RangoBridgeInitiated(
                 request.requestId,
@@ -125,9 +120,10 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
                 bridgeRequest.receiver,
                 bridgeRequest.dstChainId,
                 true,
-                imMessage.actionType != Interchain.ActionType.NO_ACTION,
+                false,
                 uint8(BridgeType.CBridge),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         }
     }
@@ -144,15 +140,14 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         address payable middleware = getCBridgeStorage().rangoCBridgeMiddlewareAddress;
         require(middleware != LibSwapper.ETH, "Middleware not set");
         // transfer tokens to middleware if necessary
-        uint amount = request.amount;
         uint value = bridgeRequest.sgnFee;
         if (request.token == LibSwapper.ETH) {
-            require(msg.value >= amount + bridgeRequest.sgnFee + LibSwapper.sumFees(request), "Insufficient ETH");
-            value = amount + bridgeRequest.sgnFee;
+            require(msg.value >= request.amount + bridgeRequest.sgnFee + LibSwapper.sumFees(request), "Insufficient ETH");
+            value = request.amount + bridgeRequest.sgnFee;
         } else {
             // To save gas we dont transfer to this contract, instead we directly transfer from user to middleware.
             // Note we only send the amount to middleware (doesn't include fees)
-            SafeERC20.safeTransferFrom(IERC20(request.token), msg.sender, middleware, amount);
+            SafeERC20.safeTransferFrom(IERC20(request.token), msg.sender, middleware, request.amount);
             require(msg.value >= value, "Insufficient ETH");
         }
 
@@ -164,7 +159,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             RangoCBridgeMiddleware(middleware).doSend{value : value}(
                 bridgeRequest.receiver,
                 request.token,
-                amount,
+                request.amount,
                 bridgeRequest.dstChainId,
                 bridgeRequest.nonce,
                 bridgeRequest.maxSlippage);
@@ -173,46 +168,49 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
             emit RangoBridgeInitiated(
                 request.requestId,
                 request.token,
-                amount,
+                request.amount,
                 bridgeRequest.receiver,
                 bridgeRequest.dstChainId,
                 false,
                 false,
                 uint8(BridgeType.CBridge),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         } else {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
             // CBridgeIM doesn't support native tokens and we should wrap it.
-            address bridgeImToken = request.token;
-            if (request.token == LibSwapper.ETH) {
-                bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
-                IWETH(bridgeImToken).deposit{value : amount}();
-                SafeERC20.safeTransfer(IERC20(bridgeImToken), middleware, amount);
+            {
+                Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
+                address bridgeImToken = request.token;
+                if (request.token == LibSwapper.ETH) {
+                    bridgeImToken = LibSwapper.getBaseSwapperStorage().WETH;
+                    IWETH(bridgeImToken).deposit{value : request.amount}();
+                    SafeERC20.safeTransfer(IERC20(bridgeImToken), middleware, request.amount);
+                }
+                require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
+                RangoCBridgeMiddleware(middleware).doCBridgeIM{value : bridgeRequest.sgnFee}(
+                    bridgeImToken,
+                    request.amount,
+                    bridgeRequest.receiver,
+                    bridgeRequest.dstChainId,
+                    bridgeRequest.nonce,
+                    bridgeRequest.maxSlippage,
+                    bridgeRequest.sgnFee,
+                    imMessage
+                );
             }
-            require(bridgeImToken != LibSwapper.ETH, "celerIM doesnt support native token");
-            RangoCBridgeMiddleware(middleware).doCBridgeIM{value : bridgeRequest.sgnFee}(
-                bridgeImToken,
-                amount,
-                bridgeRequest.receiver,
-                bridgeRequest.dstChainId,
-                bridgeRequest.nonce,
-                bridgeRequest.maxSlippage,
-                bridgeRequest.sgnFee,
-                imMessage
-            );
-
             // event emission
             emit RangoBridgeInitiated(
                 request.requestId,
                 request.token,
-                amount,
+                request.amount,
                 bridgeRequest.receiver,
                 bridgeRequest.dstChainId,
                 true,
-                imMessage.actionType != Interchain.ActionType.NO_ACTION,
+                false,
                 uint8(BridgeType.CBridge),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         }
     }

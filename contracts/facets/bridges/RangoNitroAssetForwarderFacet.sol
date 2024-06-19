@@ -64,7 +64,8 @@ contract RangoNitroAssetForwarderFacet is IRango, ReentrancyGuard, IRangoNitroAs
             false,
             false,
             uint8(BridgeType.NitroAssetForwarder),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -102,7 +103,8 @@ contract RangoNitroAssetForwarderFacet is IRango, ReentrancyGuard, IRangoNitroAs
             false,
             false,
             uint8(BridgeType.NitroAssetForwarder),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

@@ -52,7 +52,8 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
             false,
             false,
             uint8(BridgeType.Thorchain),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -90,7 +91,8 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
             false,
             false,
             uint8(BridgeType.Thorchain),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

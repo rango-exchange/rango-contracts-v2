@@ -54,6 +54,7 @@ library LibSwapper {
     /// @param dAppTag Optional identifier to make tracking easier
     /// @param outputAmount The output amount of the swap, measured by the balance change before and after the swap
     /// @param receiver The address to receive the output of swap. Can be address(0) when swap is before a bridge action
+    /// @param dAppName The human readable name of the dApp
     event RangoSwap(
         address indexed requestId,
         address fromToken,
@@ -62,7 +63,8 @@ library LibSwapper {
         uint minimumAmountExpected,
         uint16 indexed dAppTag,
         uint outputAmount,
-        address receiver
+        address receiver,
+        string dAppName
     );
 
     /// @notice Output amount of a dex calls is logged
@@ -122,6 +124,7 @@ library LibSwapper {
     /// @param minimumAmountExpected The minimum amount of toToken expected after executing Calls
     /// @param feeFromInputToken If set to true, the fees will be taken from input token and otherwise, from output token. (platformFee,destinationExecutorFee,affiliateFee)
     /// @param dAppTag An optional parameter
+    /// @param dAppName The Name of the dApp
     struct SwapRequest {
         address requestId;
         address fromToken;
@@ -134,6 +137,7 @@ library LibSwapper {
         uint minimumAmountExpected;
         bool feeFromInputToken;
         uint16 dAppTag;
+        string dAppName;
     }
 
     /// @notice initializes the base swapper and sets the init params (such as Wrapped token address)
@@ -594,7 +598,8 @@ library LibSwapper {
             request.minimumAmountExpected,
             request.dAppTag,
             output,
-            receiver
+            receiver,
+            request.dAppName
         );
     }
 }

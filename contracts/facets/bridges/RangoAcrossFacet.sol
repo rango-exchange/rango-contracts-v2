@@ -90,15 +90,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         AcrossBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-
         doAcrossBridge(bridgeRequest, request.toToken, out);
-
-        bool hasInterchainMessage = bridgeRequest.message.length > 0;
-        bool hasDestSwap = false;
-        if (hasInterchainMessage == true) {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.message), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
 
         // event emission
         emit RangoBridgeInitiated(
@@ -107,10 +99,12 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
             out,
             bridgeRequest.recipient,
             bridgeRequest.destinationChainId,
-            hasInterchainMessage,
-            hasDestSwap,
+            bridgeRequest.message.length > 0,
+            false,
             uint8(BridgeType.Across),
-            request.dAppTag);
+            request.dAppTag,
+            request.dAppName
+        );
     }
 
     /// @notice starts bridging through Across bridge
@@ -119,9 +113,8 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         AcrossBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
-        uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
-        uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);
+        uint amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary
         if (token == LibSwapper.ETH) {
             require(
@@ -130,7 +123,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amountWithFee);
         }
         LibSwapper.collectFees(bridgeRequest);
-        doAcrossBridge(request, token, amount);
+        doAcrossBridge(request, token, bridgeRequest.amount);
 
         bool hasInterchainMessage = request.message.length > 0;
         bool hasDestSwap = false;
@@ -143,13 +136,14 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         emit RangoBridgeInitiated(
             bridgeRequest.requestId,
             token,
-            amount,
+            bridgeRequest.amount,
             request.recipient,
             request.destinationChainId,
             hasInterchainMessage,
             hasDestSwap,
             uint8(BridgeType.Across),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

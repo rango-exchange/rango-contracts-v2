@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import "../../libraries/LibInterchain.sol";
 import "../../interfaces/IStargateReceiver.sol";
+import "../../interfaces/IStargateV2.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../base/RangoBaseInterchainMiddleware.sol";
 
@@ -13,20 +14,30 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
 
     /// @dev keccak256("exchange.rango.middleware.stargate")
     bytes32 internal constant STARGATE_MIDDLEWARE_NAMESPACE = hex"8f95700cb6d0d3fbe23970b0fed4ae8d3a19af1ff9db49b72f280b34bdf7bad8";
+    
+    /// params for decoding stargateV2 messages
+    uint8 private constant SRC_EID_OFFSET = 12;
+    uint8 private constant AMOUNT_LD_OFFSET = 44;
+    uint8 private constant COMPOSE_FROM_OFFSET = 76; // OFTComposeMsgCodec
 
     struct RangoStargateMiddlewareStorage {
         address stargateComposer;
         address sgeth;
+        address stargateV2Treasurer; 
+        address layerzeroEndpoint;
     }
 
     function initStargateMiddleware(
         address _owner,
         address _stargateComposer,
         address _whitelistsContract,
-        address _sgeth
+        address _sgeth,
+        address _stargateV2Treasurer,
+        address _stargateV2Endpoint
     ) external onlyOwner {
         initBaseMiddleware(_owner, _whitelistsContract);
         updateStargateComposerAndSGETHAddressInternal(_stargateComposer, _sgeth);
+        updateStargateTreasurerAndEndpointInternal(_stargateV2Treasurer, _stargateV2Endpoint);
     }
 
     /// Events
@@ -35,6 +46,13 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
     /// @param oldAddress The previous address
     /// @param newAddress The new SGETH address
     event StargateComposerAddressUpdated(address oldAddress, address newAddress, address oldSgethAddress, address sgethAddress);
+
+    /// @notice Emits when the Stargate address is updated
+    /// @param oldTreasurerAddress The previous Treasurer address
+    /// @param newTreasurerAddress The new Treasurer address
+    /// @param oldEndpointAddress The previous Endpoint address
+    /// @param newEndpointAddress The new Endpoint address
+    event StargateV2TreasurerAndEndpointAddressUpdated(address oldTreasurerAddress, address newTreasurerAddress, address oldEndpointAddress, address newEndpointAddress);
 
     /// External Functions
 
@@ -50,6 +68,43 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
     function updateStargetSGETH(address sgethAddress) external onlyOwner {
         RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
         updateStargateComposerAndSGETHAddressInternal(s.stargateComposer, sgethAddress);
+    }
+
+    /// @notice Updates the address of stargate v2 treasurer and endpoint
+    /// @param newTreasurerAddress The new address of treasurer
+    /// @param newEndpointAddress The new address of endpoint
+    function updateStargateV2TreasurerAndEndpoint(address newTreasurerAddress, address newEndpointAddress) external onlyOwner {
+        updateStargateTreasurerAndEndpointInternal(newTreasurerAddress, newEndpointAddress);
+    }
+
+    function lzCompose(
+        address _from,
+        bytes32,
+        bytes calldata _message,
+        address,
+        bytes calldata
+    ) external payable {
+        RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
+        require(msg.sender == s.layerzeroEndpoint, "invalid sender");
+        require(IStargateV2Treasurer(s.stargateV2Treasurer).stargates(_from) == true, "invalid stargate");
+        // get token address from the stargate pool
+        address bridgeToken = IStargateV2Pool(_from).token();
+        
+        bytes calldata rangoMessageBytes = _message[COMPOSE_FROM_OFFSET:];
+        Interchain.RangoInterChainMessage memory m = abi.decode((rangoMessageBytes), (Interchain.RangoInterChainMessage));
+        uint256 amountLD = uint256(bytes32(_message[SRC_EID_OFFSET:AMOUNT_LD_OFFSET]));
+
+        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(bridgeToken, amountLD, m);
+
+        emit RangoBridgeCompleted(
+            m.requestId,
+            receivedToken,
+            m.originalSender,
+            m.recipient,
+            dstAmount,
+            status,
+            m.dAppTag
+        );
     }
 
     // @param _chainId The remote chainId sending the tokens
@@ -96,6 +151,16 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         address oldSgethAddress = s.sgeth;
         s.sgeth = sgethAddress;
         emit StargateComposerAddressUpdated(oldComposerAddress, newComposerAddress, oldSgethAddress, sgethAddress);
+    }
+
+    function updateStargateTreasurerAndEndpointInternal(address newTreasurerAddress, address newEndpointAddress) private {
+        RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
+        address oldTreasurer = s.stargateV2Treasurer;
+        s.stargateV2Treasurer = newTreasurerAddress;
+
+        address oldEndpointAddress = s.layerzeroEndpoint;
+        s.layerzeroEndpoint = newEndpointAddress;
+        emit StargateV2TreasurerAndEndpointAddressUpdated(oldTreasurer, newTreasurerAddress, oldEndpointAddress, newEndpointAddress);
     }
 
     /// @dev fetch local storage

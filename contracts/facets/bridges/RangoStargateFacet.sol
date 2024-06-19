@@ -72,37 +72,29 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         LibSwapper.Call[] calldata calls,
         StargateRequest memory stargateRequest
     ) external payable nonReentrant {
-        uint out;
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - stargateRequest.stgFee;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0) - stargateRequest.stgFee;
         }
         else {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, stargateRequest.stgFee);
-            bridgeAmount = out;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, stargateRequest.stgFee);
         }
         doStargateSwap(stargateRequest, request.toToken, bridgeAmount);
-
-        bool hasDestSwap = false;
-        if (stargateRequest.bridgeType == StargateBridgeType.TRANSFER_WITH_MESSAGE) {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((stargateRequest.imMessage), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
 
         // event emission
         emit RangoBridgeInitiated(
             request.requestId,
             request.toToken,
-            out,
+            bridgeAmount,
             LibTransform.bytesToAddress(stargateRequest.to),
             stargateRequest.dstChainId,
             stargateRequest.bridgeType == StargateBridgeType.TRANSFER_WITH_MESSAGE,
-            hasDestSwap,
+            false,
             uint8(BridgeType.Stargate),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -136,7 +128,8 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
             stargateRequest.bridgeType == StargateBridgeType.TRANSFER_WITH_MESSAGE,
             hasDestSwap,
             uint8(BridgeType.Stargate),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

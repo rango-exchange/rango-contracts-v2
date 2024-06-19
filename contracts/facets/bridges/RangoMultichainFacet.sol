@@ -74,10 +74,10 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
                 false,
                 false,
                 uint8(BridgeType.Multichain),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         } else {
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
             doMultichainBridgeAndAnyCall(bridgeRequest, request.toToken, out);
             // event emission
             emit RangoBridgeInitiated(
@@ -87,9 +87,10 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
                 bridgeRequest.receiverAddress,
                 bridgeRequest.receiverChainID,
                 true,
-                imMessage.actionType != Interchain.ActionType.NO_ACTION,
+                false,
                 uint8(BridgeType.Multichain),
-                request.dAppTag
+                request.dAppTag,
+                request.dAppName
             );
         }
 
@@ -123,7 +124,8 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
                 false,
                 false,
                 uint8(BridgeType.Multichain),
-                bridgeRequest.dAppTag
+                bridgeRequest.dAppTag,
+                bridgeRequest.dAppName
             );
         } else {
             Interchain.RangoInterChainMessage memory imMessage = abi.decode((request.imMessage), (Interchain.RangoInterChainMessage));
@@ -138,7 +140,8 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
                 true,
                 imMessage.actionType != Interchain.ActionType.NO_ACTION,
                 uint8(BridgeType.Multichain),
-                bridgeRequest.dAppTag
+                bridgeRequest.dAppTag,
+                bridgeRequest.dAppName
             );
         }
     }

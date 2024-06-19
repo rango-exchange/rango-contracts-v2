@@ -67,7 +67,8 @@ contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
             false,
             false,
             uint8(BridgeType.YBridge),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -99,7 +100,8 @@ contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
             false,
             false,
             uint8(BridgeType.YBridge),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

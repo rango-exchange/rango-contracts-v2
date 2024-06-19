@@ -56,7 +56,8 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
             false,
             false,
             uint8(BridgeType.AllBridge),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -88,7 +89,8 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
             false,
             false,
             uint8(BridgeType.AllBridge),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

@@ -82,7 +82,8 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             false,
             false,
             uint8(BridgeType.Symbiosis),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -112,7 +113,8 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
             false,
             false,
             uint8(BridgeType.Symbiosis),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

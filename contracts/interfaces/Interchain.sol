@@ -33,16 +33,6 @@ interface Interchain {
         uint deadline;
     }
 
-    struct UniswapV3ActionExactInputSingleParams {
-        address dexAddress;
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        uint256 deadline;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
     struct UniswapV3ActionExactInputParams {
         address dexAddress;
         address tokenIn;

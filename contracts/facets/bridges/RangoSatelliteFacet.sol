@@ -77,17 +77,14 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         LibSwapper.Call[] calldata calls,
         SatelliteBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
-        uint out;
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
         if (request.toToken == LibSwapper.ETH && msg.value == 0) {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-            bridgeAmount = out - bridgeRequest.relayerGas;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0) - bridgeRequest.relayerGas;
         }
         else {
-            out = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.relayerGas);
-            bridgeAmount = out;
+            bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.relayerGas);
         }
 
         doSatelliteBridge(bridgeRequest, request.toToken, bridgeAmount);
@@ -102,7 +99,8 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
             bridgeRequest.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE,
             false,
             uint8(BridgeType.Axelar),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -135,7 +133,8 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
             request.bridgeType == SatelliteBridgeType.TRANSFER_WITH_MESSAGE,
             false,
             uint8(BridgeType.Axelar),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

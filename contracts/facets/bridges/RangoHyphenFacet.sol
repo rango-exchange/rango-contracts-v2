@@ -45,9 +45,11 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
         IRangoHyphen.HyphenBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-        HyphenStorage storage s = getHyphenStorage();
-        if (request.toToken != LibSwapper.ETH) 
+        
+        if (request.toToken != LibSwapper.ETH) {
+            HyphenStorage storage s = getHyphenStorage();
             LibSwapper.approveMax(request.toToken, s.hyphenAddress, out);
+        }
         doHyphenBridge(bridgeRequest, request.toToken, out);
 
         // event emission
@@ -60,7 +62,8 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
             false,
             false,
             uint8(BridgeType.Hyphen),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -92,7 +95,8 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
             false,
             false,
             uint8(BridgeType.Hyphen),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

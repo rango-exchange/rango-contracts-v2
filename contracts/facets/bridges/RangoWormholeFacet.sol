@@ -55,17 +55,8 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
         LibSwapper.Call[] calldata calls,
         IRangoWormhole.WormholeBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
-        uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
-        uint bridgeAmount = out - bridgeRequest.fee;
+        uint bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0) - bridgeRequest.fee;
         doWormholeBridge(bridgeRequest, request.toToken, bridgeAmount);
-
-        bool hasInterchainMessage = false;
-        bool hasDestSwap = false;
-        if (bridgeRequest.bridgeType == WormholeBridgeType.TRANSFER_WITH_MESSAGE) {
-            hasInterchainMessage = true;
-            Interchain.RangoInterChainMessage memory imMessage = abi.decode((bridgeRequest.imMessage), (Interchain.RangoInterChainMessage));
-            hasDestSwap = imMessage.actionType != Interchain.ActionType.NO_ACTION;
-        }
 
         // event emission
         emit RangoBridgeInitiated(
@@ -74,10 +65,11 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
             bridgeAmount,
             address(uint160(bytes20(bridgeRequest.recipient))),
             bridgeRequest.recipientChain,
-            hasInterchainMessage,
-            hasDestSwap,
+            bridgeRequest.bridgeType == WormholeBridgeType.TRANSFER_WITH_MESSAGE,
+            false,
             uint8(BridgeType.Wormhole),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -117,7 +109,8 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
             hasInterchainMessage,
             hasDestSwap,
             uint8(BridgeType.Wormhole),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 

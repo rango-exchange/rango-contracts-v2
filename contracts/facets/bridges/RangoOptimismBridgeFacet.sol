@@ -81,7 +81,8 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
             false,
             false,
             uint8(BridgeType.OptimismBridge),
-            request.dAppTag
+            request.dAppTag,
+            request.dAppName
         );
     }
 
@@ -112,7 +113,8 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
             false,
             false,
             uint8(BridgeType.OptimismBridge),
-            bridgeRequest.dAppTag
+            bridgeRequest.dAppTag,
+            bridgeRequest.dAppName
         );
     }
 
