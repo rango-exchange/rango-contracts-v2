@@ -11,9 +11,8 @@ import "../base/RangoBaseInterchainMiddleware.sol";
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, RangoBaseInterchainMiddleware {
-
-    /// @dev keccak256("exchange.rango.middleware.stargate")
-    bytes32 internal constant STARGATE_MIDDLEWARE_NAMESPACE = hex"8f95700cb6d0d3fbe23970b0fed4ae8d3a19af1ff9db49b72f280b34bdf7bad8";
+    /// Storage ///
+    bytes32 internal constant STARGATE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.stargate");
     
     /// params for decoding stargateV2 messages
     uint8 private constant SRC_EID_OFFSET = 12;

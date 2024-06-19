@@ -6,9 +6,7 @@ pragma solidity 0.8.25;
 /// @notice Abstract contract to provide protection against reentrancy
 abstract contract ReentrancyGuard {
     /// Storage ///
-
-    /// @dev keccak256("exchange.rango.reentrancyguard");
-    bytes32 private constant NAMESPACE = hex"4fe94118b1030ac5f570795d403ee5116fd91b8f0b5d11f2487377c2b0ab2559";
+    bytes32 private constant NAMESPACE = keccak256("exchange.rango.reentrancyguard");
 
     /// Types ///
 

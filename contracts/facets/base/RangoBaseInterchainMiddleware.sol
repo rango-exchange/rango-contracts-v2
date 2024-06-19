@@ -9,8 +9,8 @@ import "../../interfaces/IRangoMiddlewareWhitelists.sol";
 // @author George
 // @dev Note that this is not a facet and should be extended and deployed separately.
 contract RangoBaseInterchainMiddleware {
-    /// @dev keccak256("exchange.rango.middleware.base")
-    bytes32 internal constant BASE_MIDDLEWARE_CONTRACT_NAMESPACE = hex"ad914d4300c64e1902ca499875cd8a76ae717047bcfaa9e806ff7ea4f6911268";
+    /// Storage ///
+    bytes32 internal constant BASE_MIDDLEWARE_CONTRACT_NAMESPACE = keccak256("exchange.rango.middleware.base");
 
     struct BaseInterchainMiddlewareStorage {
         address owner;

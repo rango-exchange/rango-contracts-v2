@@ -14,13 +14,13 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../utils/LibTransform.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../utils/LibTransform.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Stargate. For receiving messages from LayerZero, a middleware contract is used(RangoStargateMiddleware).
 /// @author George & AMA
 contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.stargate")
-    bytes32 internal constant STARGATE_NAMESPACE = hex"9226eefa91acf770d80880f45d613abe38399c942d4a127aff5bb29333e9d4a5";
+    bytes32 internal constant STARGATE_NAMESPACE = keccak256("exchange.rango.facets.stargate");
 
     struct StargateStorage {
         /// @notice The address of stargate contract
@@ -72,6 +72,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         LibSwapper.Call[] calldata calls,
         StargateRequest memory stargateRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
@@ -102,6 +103,7 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         StargateRequest memory stargateRequest,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary
         if (bridgeRequest.token != LibSwapper.ETH) {

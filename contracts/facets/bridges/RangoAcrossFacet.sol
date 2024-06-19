@@ -7,16 +7,14 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/Interchain.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Across bridge
 /// @author Thinking Particle & AMA
 /// @dev This is deployed as a facet for RangoDiamond
 contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
-
     /// Storage ///
-
-    /// @dev keccak256("exchange.rango.facets.across")
-    bytes32 internal constant ACROSS_NAMESPACE = hex"4e63b982873f293633572d65fbc8b8e979949d7d2e57c548af3c9d5fc8844dbb";
+    bytes32 internal constant ACROSS_NAMESPACE = keccak256("exchange.rango.facets.across");
 
     struct AcrossStorage {
         /// @notice List of whitelisted Across spoke pools in the current chain
@@ -89,6 +87,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         LibSwapper.Call[] calldata calls,
         AcrossBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         doAcrossBridge(bridgeRequest, request.toToken, out);
 
@@ -113,6 +112,7 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         AcrossBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         address token = bridgeRequest.token;
         uint amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary

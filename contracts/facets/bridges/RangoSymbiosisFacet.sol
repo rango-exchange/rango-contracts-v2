@@ -11,14 +11,14 @@ import "../../interfaces/Interchain.sol";
 import "../../libraries/LibInterchain.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../utils/ReentrancyGuard.sol";
+import "../../libraries/LibPausable.sol";
 
 
 /// @title The root contract that handles Rango's interaction with symbiosis
 /// @author Rza
 contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.symbiosis")
-    bytes32 internal constant SYMBIOSIS_NAMESPACE = hex"81ce8a65cc4e11b9c999b4c5d66459bb20272ba6288f99768bc4d0cb2c8ca95d";
+    bytes32 internal constant SYMBIOSIS_NAMESPACE = keccak256("exchange.rango.facets.symbiosis");
 
     struct SymbiosisStorage {
         /// @notice The address of symbiosis meta router contract
@@ -69,6 +69,7 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
         LibSwapper.Call[] calldata calls,
         IRangoSymbiosis.SymbiosisBridgeRequest calldata bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         doSymbiosisBridge(bridgeRequest, request.toToken, out);
 
@@ -91,6 +92,7 @@ contract RangoSymbiosisFacet is IRango, ReentrancyGuard, IRangoSymbiosis {
         IRangoSymbiosis.SymbiosisBridgeRequest calldata symbiosisRequest,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         SymbiosisStorage storage s = getSymbiosisStorage();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary

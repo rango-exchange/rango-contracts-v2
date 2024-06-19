@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibSwapper.sol";
+import "../../libraries/LibPausable.sol";
 
 contract RangoAccessManagerFacet {
 
@@ -80,4 +81,13 @@ contract RangoAccessManagerFacet {
             emit ContractAndMethodsBlacklisted(contractAddress, methodIds);
         }
     }
+
+
+    /// @notice Sets paused state on Rango
+    /// @param _paused The desired state of being paused or not
+    function changePauseState(bool _paused) external {
+        LibDiamond.enforceIsContractOwner();
+        LibPausable.updatePauseState(_paused);
+    }
+
 }

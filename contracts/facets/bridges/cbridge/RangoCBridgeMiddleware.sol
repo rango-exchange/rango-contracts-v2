@@ -13,9 +13,8 @@ import "../../base/RangoBaseInterchainMiddleware.sol";
 /// @dev this contract works directly with cBridge and messagebus.
 ///      Note that this is not a facet and should be deployed separately.
 contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, MessageSenderApp, MessageReceiverApp, ReentrancyGuard {
-
-    /// @dev keccak256("exchange.rango.middleware.cbridge")
-    bytes32 internal constant CBIRDGE_MIDDLEWARE_NAMESPACE = hex"2ba094f4e7908864b6d0bf1b955a13285820ecdae1501be90101739a37f73d34";
+    /// Storage ///
+    bytes32 internal constant CBIRDGE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.cbridge");
 
     struct RangoCBridgeMiddlewareStorage {
         address cBridgeAddress;

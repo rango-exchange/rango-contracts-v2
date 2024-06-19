@@ -6,9 +6,7 @@ import { IERC173 } from "../../interfaces/IERC173.sol";
 
 contract OwnershipFacet is IERC173 {
     /// Storage ///
-
-    /// @dev keccak256("exchange.rango.facets.ownership");
-    bytes32 internal constant NAMESPACE = hex"62434cca177aa6071a5ef14ac38a94bc33078d7cb2c1f72b485320da7dfd349b";
+    bytes32 internal constant NAMESPACE = keccak256("exchange.rango.facets.ownership");
     struct Storage {
         address newOwner;
     }

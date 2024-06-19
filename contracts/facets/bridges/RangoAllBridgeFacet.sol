@@ -8,14 +8,14 @@ import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../interfaces/IAllBridgeRouter.sol";
 import "../../interfaces/IRangoAllBridge.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with allbridge
 /// @author George
 /// @dev This facet should be added to diamond.
 contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.allbridge")
-    bytes32 internal constant ALLBRIDGE_NAMESPACE = hex"ca7499307d2f8158acd5d48318ce24f77c0ef835d9c609fad6ea61d3bb4728d7";
+    bytes32 internal constant ALLBRIDGE_NAMESPACE = keccak256("exchange.rango.facets.allbridge");
 
     struct AllBridgeStorage {
         /// @notice The address of AllBridge contract on this chain
@@ -43,6 +43,7 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
         LibSwapper.Call[] calldata calls,
         AllBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, bridgeRequest.transferFee);
 
         doAllBridgeBridge(bridgeRequest, request.toToken, out);
@@ -67,6 +68,7 @@ contract RangoAllBridgeFacet is IRango, ReentrancyGuard, IRangoAllBridge {
         AllBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

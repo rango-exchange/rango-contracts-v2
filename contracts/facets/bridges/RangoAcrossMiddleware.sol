@@ -10,9 +10,8 @@ import "../../interfaces/IAcrossMessageHandler.sol";
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMiddleware, AcrossMessageHandler {
-
-    /// @dev keccak256("exchange.rango.middleware.across")
-    bytes32 internal constant ACROSS_MIDDLEWARE_NAMESPACE = hex"dce24b54ba6ac621127abf10d5895b3a9a9c566b24eddc36b2163fc15747e32b";
+    /// Storage ///
+    bytes32 internal constant ACROSS_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.across");
 
     struct RangoAcrossMiddlewareStorage {
         /// @notice Addresses that can call exec on this contract

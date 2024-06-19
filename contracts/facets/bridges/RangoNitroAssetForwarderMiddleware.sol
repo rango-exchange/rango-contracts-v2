@@ -10,8 +10,8 @@ import "../../interfaces/INitroAssetForwarderMessageHandler.sol";
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoNitroAssetForwarderMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMiddleware, NitroAssetForwarderMessageHandler {
-    /// @dev keccak256("exchange.rango.middleware.nitro_asset_forwarder")
-    bytes32 internal constant NITRO_ASSET_FORWARDER_MIDDLEWARE_NAMESPACE = hex"c4c0b9311354e098fc4bf86672c92ca34c6037c8eef7a20b7b66bcce525505fc";
+    /// Storage ///
+    bytes32 internal constant NITRO_ASSET_FORWARDER_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.nitro_asset_forwarder");
 
     address internal constant EEE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 

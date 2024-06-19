@@ -11,14 +11,14 @@ import "../../libraries/LibInterchain.sol";
 import "../../utils/LibTransform.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with yBridge from xy finance
 /// @author jeoffery
 /// @dev This facet should be added to diamond.
 contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.yBridge")
-    bytes32 internal constant YBRIDGE_NAMESPACE = hex"d3217d0de7a24581e333df3a18b696e34eb95ce343a4ce3fa174de6cf5c391ae";
+    bytes32 internal constant YBRIDGE_NAMESPACE = keccak256("exchange.rango.facets.yBridge");
 
     struct YBridgeStorage {
         /// @notice The address of yBridge contract
@@ -53,6 +53,7 @@ contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
         LibSwapper.Call[] calldata calls,
         YBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doYBridge(bridgeRequest, request.toToken, bridgeAmount);
@@ -78,6 +79,7 @@ contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
         YBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

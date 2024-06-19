@@ -7,13 +7,13 @@ import "../../interfaces/IOptimismL1XBridge.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Optimism bridge
 /// @author AMA
 contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
-
-    /// @dev keccak256("exchange.rango.facets.optimism")
-    bytes32 internal constant OPTIMISM_NAMESPACE = hex"d71013fddabd873f708e3a17329ab5776ce161122cfa59010e29f6c12070b69f";
+    /// Storage ///
+    bytes32 internal constant OPTIMISM_NAMESPACE = keccak256("exchange.rango.facets.optimism");
 
     struct OptimismBridgeStorage {
         mapping (address => bool) whitelistBridgeContracts;
@@ -67,6 +67,7 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
         LibSwapper.Call[] calldata calls,
         IRangoOptimism.OptimismBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doOptimismBridge(bridgeRequest, request.toToken, out);
@@ -92,6 +93,7 @@ contract RangoOptimismBridgeFacet is IRango, ReentrancyGuard, IRangoOptimism {
         IRangoOptimism.OptimismBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens & check inputs if necessary
         if (bridgeRequest.token == LibSwapper.ETH) {

@@ -13,9 +13,8 @@ import "../../interfaces/WormholeBridgeStructs.sol";
 /// @author AMA
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchainMiddleware {
-
-    /// @dev keccak256("exchange.rango.middleware.wormhole")
-    bytes32 internal constant WORMHOLE_MIDDLEWARE_NAMESPACE = hex"03b65cc2ae1a0403a8a39c713a7539556dcb0e1f9e232988c2d31a10f06ab207";
+    /// Storage ///
+    bytes32 internal constant WORMHOLE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.wormhole");
 
     struct RangoWormholeMiddlewareStorage {
         address wormholeRouter;

@@ -6,6 +6,7 @@ import "../../../interfaces/IRangoThorchain.sol";
 import "../../../interfaces/IRango.sol";
 import "../../../libraries/LibSwapper.sol";
 import "../../../utils/ReentrancyGuard.sol";
+import "../../../libraries/LibPausable.sol";
 
 /// @title A contract to handle interactions with Thorchain Router contract on evm chains.
 /// @author Thinking Particle
@@ -32,6 +33,7 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
         LibSwapper.Call[] calldata calls,
         ThorchainBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         if (request.toToken != LibSwapper.ETH) {
             LibSwapper.approveMax(request.toToken, bridgeRequest.tcRouter, out);
@@ -64,6 +66,7 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
         RangoBridgeRequest memory bridgeRequest,
         ThorchainBridgeRequest memory request
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);
         address token = bridgeRequest.token;

@@ -6,14 +6,14 @@ import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/IRouterNitroAssetForwarder.sol";
+import "../../libraries/LibPausable.sol";
 
 // @title Facet contract to interact with Router Nitro Asset Forwarder
 /// @author George
 /// @dev This facet should be added to diamond.
 contract RangoNitroAssetForwarderFacet is IRango, ReentrancyGuard, IRangoNitroAssetForwarder {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.nitro_asset_forwarder")
-    bytes32 internal constant NITRO_ASSET_FORWARDER_NAMESPACE = hex"ebac9d4b86564e454526189ad2e663764ca42d40bf0dc77efceebc2eba5ef994";
+    bytes32 internal constant NITRO_ASSET_FORWARDER_NAMESPACE = keccak256("exchange.rango.facets.nitro_asset_forwarder");
 
     address internal constant EEE_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -50,6 +50,7 @@ contract RangoNitroAssetForwarderFacet is IRango, ReentrancyGuard, IRangoNitroAs
         LibSwapper.Call[] calldata calls,
         IRangoNitroAssetForwarder.NitroBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doNitroBridge(bridgeRequest, request.toToken, bridgeAmount);
@@ -73,6 +74,7 @@ contract RangoNitroAssetForwarderFacet is IRango, ReentrancyGuard, IRangoNitroAs
         IRangoNitroAssetForwarder.NitroBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

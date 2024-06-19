@@ -7,13 +7,13 @@ import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Synapse bridge
 /// @author Rango DeXter
 contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.synapse")
-    bytes32 internal constant SYNAPSE_NAMESPACE = hex"02869f424030b590e41301e776e7c113e07b544e24de2460494da4c5d586976c";
+    bytes32 internal constant SYNAPSE_NAMESPACE = keccak256("exchange.rango.facets.synapse");
 
     struct SynapseStorage {
         /// @notice Synapse router address in the current chain
@@ -44,6 +44,7 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
         LibSwapper.Call[] calldata calls,
         IRangoSynapse.SynapseBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         doSynapseBridge(bridgeRequest, request.toToken, out);
         emit RangoBridgeInitiated(
@@ -66,6 +67,7 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
         IRangoSynapse.SynapseBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

@@ -10,9 +10,8 @@ import "../../interfaces/IConnextReceiver.sol";
 /// @author jeoffery
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoConnextMiddleware is ReentrancyGuard, IRango, IConnextReceiver, RangoBaseInterchainMiddleware {
-
-    /// @dev keccak256("exchange.rango.middleware.connext")
-    bytes32 internal constant CONNEXT_MIDDLEWARE_NAMESPACE = hex"3b1e41b9e4a4adee2522104effda39f596c3c369174ba07a243347cbec17c71f";
+    /// Storage ///
+    bytes32 internal constant CONNEXT_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.connext");
 
     struct RangoConnextMiddlewareStorage {
         address connextBridge;

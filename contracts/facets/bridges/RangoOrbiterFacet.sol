@@ -7,6 +7,7 @@ import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Orbiter bridge
 /// @author Thinking Particle
@@ -70,6 +71,7 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
         LibSwapper.Call[] calldata calls,
         OrbiterBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doOrbiterBridge(bridgeRequest, request.toToken, out);
@@ -96,6 +98,7 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
         OrbiterBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

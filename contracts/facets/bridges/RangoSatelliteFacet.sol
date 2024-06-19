@@ -13,14 +13,14 @@ import "../../libraries/LibInterchain.sol";
 import "../../utils/LibTransform.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with satellite
 /// @author 0xiden
 /// @dev This facet should be added to diamond. This facet doesn't and shouldn't receive messages. Handling messages is done through middleware.
 contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.satellite")
-    bytes32 internal constant SATELLITE_NAMESPACE = hex"e97496d8273588711c444d166dc378e07de45d7ba4c6f83debe0eaef953c5a6f";
+    bytes32 internal constant SATELLITE_NAMESPACE = keccak256("exchange.rango.facets.satellite");
 
     struct SatelliteStorage {
         /// @notice The address of satellite contract
@@ -77,6 +77,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         LibSwapper.Call[] calldata calls,
         SatelliteBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
@@ -110,6 +111,7 @@ contract RangoSatelliteFacet is IRango, ReentrancyGuard, IRangoSatellite {
         SatelliteBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

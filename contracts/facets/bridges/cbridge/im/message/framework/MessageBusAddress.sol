@@ -2,8 +2,8 @@
 pragma solidity 0.8.25;
 
 abstract contract MessageBusAddress {
-    /// @dev keccak256("exchange.rango.facets.cbridge.msg.messagebusaddress")
-    bytes32 internal constant MSG_BUS_ADDRESS_NAMESPACE = hex"d82f4f572578dde7d9e798c168d6d6abab176a082ca20bc9a27a6c48782c92ef";
+    /// Storage ///
+    bytes32 internal constant MSG_BUS_ADDRESS_NAMESPACE = keccak256("exchange.rango.facets.cbridge.msg.messagebusaddress");
 
     struct MsgBusAddrStorage {
         address messageBus;

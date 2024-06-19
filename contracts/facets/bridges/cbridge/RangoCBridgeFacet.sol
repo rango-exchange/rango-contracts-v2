@@ -12,14 +12,15 @@ import "../../../interfaces/IRangoMessageReceiver.sol";
 import "../../../interfaces/Interchain.sol";
 import "../../../utils/ReentrancyGuard.sol";
 import "../../../libraries/LibDiamond.sol";
+import "../../../libraries/LibPausable.sol";
 import {RangoCBridgeMiddleware} from "./RangoCBridgeMiddleware.sol";
 
 /// @title The root contract that handles Rango's interaction with cBridge through a middleware
 /// @author George
 /// @dev Logic for direct interaction with CBridge is mostly implemented in RangoCBridgeMiddleware contract.
 contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
-    /// @dev keccak256("exchange.rango.facets.cbridge")
-    bytes32 internal constant CBRIDGE_NAMESPACE = hex"c41612f6cce3d3f6bab8332956a2c64db0d9b22d96d4f739ed2233d021aebb9b";
+    /// Storage ///
+    bytes32 internal constant CBRIDGE_NAMESPACE = keccak256("exchange.rango.facets.cbridge");
 
     struct cBridgeStorage {
         address payable rangoCBridgeMiddlewareAddress;
@@ -54,6 +55,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         LibSwapper.Call[] calldata calls,
         CBridgeBridgeRequest calldata bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         require(getCBridgeStorage().rangoCBridgeMiddlewareAddress != LibSwapper.ETH, "Middleware not set");
         // transfer tokens to middleware if necessary
         uint bridgeAmount;
@@ -137,6 +139,7 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         RangoBridgeRequest memory request,
         CBridgeBridgeRequest calldata bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         address payable middleware = getCBridgeStorage().rangoCBridgeMiddlewareAddress;
         require(middleware != LibSwapper.ETH, "Middleware not set");
         // transfer tokens to middleware if necessary

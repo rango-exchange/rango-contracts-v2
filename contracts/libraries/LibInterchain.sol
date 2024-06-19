@@ -14,9 +14,8 @@ import "../interfaces/IRangoMiddlewareWhitelists.sol";
 import "./LibSwapper.sol";
 
 library LibInterchain {
-
-    /// @dev keccak256("exchange.rango.library.interchain")
-    bytes32 internal constant LIBINTERCHAIN_CONTRACT_NAMESPACE = hex"ff95014231b901d2b22bd69b4e83dacd84ac05e8c2d1e9fba0c7e2f3ed0db0eb";
+    /// Storage ///
+    bytes32 internal constant LIBINTERCHAIN_CONTRACT_NAMESPACE = keccak256("exchange.rango.library.interchain");
 
     struct BaseInterchainStorage {
         address whitelistsStorageContract;

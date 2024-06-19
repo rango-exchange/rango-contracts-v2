@@ -10,9 +10,8 @@ import "../../interfaces/IMultichainRouter.sol";
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
 contract RangoMultichainMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMiddleware, IAnycallProxy {
-
-    /// @dev keccak256("exchange.rango.middleware.multichain")
-    bytes32 internal constant MULTICHAIN_MIDDLEWARE_NAMESPACE = hex"0cf42af0773e60b292a649b87f9ceddb660d6e8bd489c0347d90c178f1d6ee6a";
+    /// Storage ///
+    bytes32 internal constant MULTICHAIN_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.multichain");
 
     struct RangoMultichainMiddlewareStorage {
         /// @notice Addresses that can call exec on this contract

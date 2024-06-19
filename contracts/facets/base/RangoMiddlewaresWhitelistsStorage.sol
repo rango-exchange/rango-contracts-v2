@@ -6,8 +6,8 @@ import "../../interfaces/IRangoMiddlewareWhitelists.sol";
 
 // this contract will be used as a storage for whitelists shared between all middlewares deployed on a chain
 contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
-    /// @dev keccak256("exchange.rango.middleware.whitelists")
-    bytes32 internal constant WHITELISTS_MIDDLEWARES_CONTRACT_NAMESPACE = hex"a6cb7cdbf6c80c36973b6759ac7e3de6e6100713791e48570eff93e6c5467c4c";
+    /// Storage ///
+    bytes32 internal constant WHITELISTS_MIDDLEWARES_CONTRACT_NAMESPACE = keccak256("exchange.rango.middleware.whitelists");
 
     struct WhitelistsMiddlewaresStorage {
         address owner;

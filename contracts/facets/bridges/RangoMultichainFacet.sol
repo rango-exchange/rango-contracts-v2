@@ -10,14 +10,13 @@ import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibInterchain.sol";
 import "../../interfaces/Interchain.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with MultichainOrg bridge
 /// @author George
 contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
-
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.multichain")
-    bytes32 internal constant MULTICHAIN_NAMESPACE = hex"13c8a23e4f93052e4f541b4dd19c72a5c4c1e8d163db3bede27c064fc6d5767c";
+    bytes32 internal constant MULTICHAIN_NAMESPACE = keccak256("exchange.rango.facets.multichain");
 
     struct MultichainStorage {
         /// @notice List of whitelisted MultichainOrg routers in the current chain
@@ -61,6 +60,7 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         LibSwapper.Call[] calldata calls,
         IRangoMultichain.MultichainBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         if (bridgeRequest.bridgeType == MultichainBridgeType.TRANSFER) {
             doMultichainBridge(bridgeRequest, request.toToken, out);
@@ -103,6 +103,7 @@ contract RangoMultichainFacet is IRango, ReentrancyGuard, IRangoMultichain {
         IRangoMultichain.MultichainBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

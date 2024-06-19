@@ -15,8 +15,7 @@ import "../../utils/ReentrancyGuard.sol";
 /// @dev This is not a facet, its deployed separately. The refund is handled by whitelisting the payload hash.
 contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable, RangoBaseInterchainMiddleware {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.middleware.satellite")
-    bytes32 internal constant SATELLITE_MIDDLEWARE_NAMESPACE = hex"80a0d98887c030c89072a2d6bd41e167c868777e38dd08ce9535a82c0c1f4a22";
+    bytes32 internal constant SATELLITE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.satellite");
 
     function initSatelliteMiddleware(
         address _owner,

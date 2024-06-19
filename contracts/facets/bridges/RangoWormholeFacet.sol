@@ -11,14 +11,13 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/Interchain.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with wormhole
 /// @author AMA
 contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
-
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.wormhole")
-    bytes32 internal constant WORMHOLE_NAMESPACE = hex"793f7e3915857b52a2ca33e83f8b2c68a049de66d28e53738de96c395c5ad94d";
+    bytes32 internal constant WORMHOLE_NAMESPACE = keccak256("exchange.rango.facets.wormhole");
 
     struct WormholeStorage {
         /// @notice The address of wormhole contract
@@ -55,6 +54,7 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
         LibSwapper.Call[] calldata calls,
         IRangoWormhole.WormholeBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount = LibSwapper.onChainSwapsPreBridge(request, calls, 0) - bridgeRequest.fee;
         doWormholeBridge(bridgeRequest, request.toToken, bridgeAmount);
 
@@ -80,6 +80,7 @@ contract RangoWormholeFacet is IRango, ReentrancyGuard, IRangoWormhole {
         IRangoWormhole.WormholeBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary
         if (bridgeRequest.token == LibSwapper.ETH) {

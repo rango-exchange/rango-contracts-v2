@@ -8,16 +8,14 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/Interchain.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with SWFT bridge
 /// @author George
 /// @dev This is deployed as a facet for RangoDiamond
 contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
-
     /// Storage ///
-
-    /// @dev keccak256("exchange.rango.facets.swft")
-    bytes32 internal constant SWFT_NAMESPACE = hex"403aad40f0ba0767ff1fe0160960c4dfcb16bb2d457591d03dce0d27f4fabb46";
+    bytes32 internal constant SWFT_NAMESPACE = keccak256("exchange.rango.facets.swft");
 
     struct SwftStorage {
         address swftContractAddress;
@@ -58,6 +56,7 @@ contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
         LibSwapper.Call[] calldata calls,
         SwftBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doSwftBridge(bridgeRequest, request.toToken, out);
@@ -83,6 +82,7 @@ contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
         SwftBridgeRequest memory request,
         IRango.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

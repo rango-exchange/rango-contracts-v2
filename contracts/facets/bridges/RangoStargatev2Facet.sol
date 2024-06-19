@@ -11,6 +11,7 @@ import "../../interfaces/IRango.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../utils/LibTransform.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with StargateV2.
 /// @author George & AMA
@@ -51,6 +52,7 @@ contract RangoStargateV2Facet is IRango, ReentrancyGuard, IRangoStargateV2 {
         LibSwapper.Call[] calldata calls,
         StargateV2Request memory stargateV2Request
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
@@ -81,6 +83,7 @@ contract RangoStargateV2Facet is IRango, ReentrancyGuard, IRangoStargateV2 {
         StargateV2Request memory stargateRequest,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary
         if (bridgeRequest.token != LibSwapper.ETH) {

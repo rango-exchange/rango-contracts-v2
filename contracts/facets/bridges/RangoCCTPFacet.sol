@@ -8,15 +8,14 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../utils/LibTransform.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Cross-Chain Transfer Protocol (circle)
 /// @author Thinking Particle
 /// @dev This is deployed as a facet for RangoDiamond
 contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
-
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.cctp")
-    bytes32 internal constant CCTP_NAMESPACE = hex"e36a83bf9bcfb30edcaefc6608f9450a7b98a1148a037c22c6aeafe6d7951b54";
+    bytes32 internal constant CCTP_NAMESPACE = keccak256("exchange.rango.facets.cctp");
 
     struct CCTPStorage {
         /// @notice contract to initiate cross chain swap
@@ -75,6 +74,7 @@ contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
         LibSwapper.Call[] calldata calls,
         CCTPRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
 
         doCctpBridge(bridgeRequest, request.toToken, out);
@@ -100,6 +100,7 @@ contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
         CCTPRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
 
         SafeERC20.safeTransferFrom(IERC20(bridgeRequest.token), msg.sender, address(this), amountWithFee);

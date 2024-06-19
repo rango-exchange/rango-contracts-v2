@@ -8,13 +8,13 @@ import "../../interfaces/IArbitrumBridgeRouter.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Arbitrum bridge
 /// @author AMA
 contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
-
-    /// @dev keccak256("exchange.rango.facets.arbitrum")
-    bytes32 internal constant ARBITRUM_NAMESPACE = hex"7d1b09bbce5c043a71c87365772180eb27aa885a0961d4a3dbf28dad7b428352";
+    /// Storage ///
+    bytes32 internal constant ARBITRUM_NAMESPACE = keccak256("exchange.rango.facets.arbitrum");
 
     struct ArbitrumBridgeStorage {
         address inbox;
@@ -52,6 +52,7 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
         LibSwapper.Call[] calldata calls,
         IRangoArbitrum.ArbitrumBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
@@ -85,6 +86,7 @@ contract RangoArbitrumBridgeFacet is IRango, ReentrancyGuard, IRangoArbitrum {
         IRangoArbitrum.ArbitrumBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens & check inputs if necessary
         if (bridgeRequest.token == LibSwapper.ETH) {

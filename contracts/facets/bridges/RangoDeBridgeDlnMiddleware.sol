@@ -14,8 +14,7 @@ import "../../utils/ReentrancyGuard.sol";
 /// @dev This is not a facet, its deployed separately.
 contract RangoDeBridgeMiddleware is IRango, ReentrancyGuard, IExternalCallExecutor, RangoBaseInterchainMiddleware {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.middleware.deBridge")
-    bytes32 internal constant DEBRIDGE_NAMESPACE = hex"b80db64eb0dcc579b74bd18b8b70041f86aa5089a59eb69a7ac85e5f3e1f7945";
+    bytes32 internal constant DEBRIDGE_NAMESPACE = keccak256("exchange.rango.middleware.deBridge");
 
     struct DeBridgeStorage {
         /// @notice The address of dln external call adapter contract

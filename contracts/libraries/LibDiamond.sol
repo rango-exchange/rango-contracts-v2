@@ -6,8 +6,8 @@ import { IDiamondCut } from "../interfaces/IDiamondCut.sol";
 /// Implementation of EIP-2535 Diamond Standard
 /// https://eips.ethereum.org/EIPS/eip-2535
 library LibDiamond {
-    /// @dev keccak256("diamond.standard.diamond.storage");
-    bytes32 internal constant DIAMOND_STORAGE_POSITION = hex"c8fcad8db84d3cc18b4c41d551ea0ee66dd599cde068d998e57d5e09332c131c";
+    /// Storage ///
+    bytes32 internal constant DIAMOND_STORAGE_POSITION = keccak256("diamond.standard.diamond.storage");
 
     // Diamond specific errors
     error IncorrectFacetCutAction();

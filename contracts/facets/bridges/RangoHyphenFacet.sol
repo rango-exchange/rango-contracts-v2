@@ -8,14 +8,13 @@ import "../../interfaces/IHyphenBridge.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with hyphen
 /// @author Hellboy
 contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
-
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.hyphen")
-    bytes32 internal constant HYPHEN_NAMESPACE = hex"03d6075c4307fa6a1d5e4f47b6afe0afc330c565a46a6b9bab3c522c2bd8485d";
+    bytes32 internal constant HYPHEN_NAMESPACE = keccak256("exchange.rango.facets.hyphen");
 
     struct HyphenStorage {
         /// @notice The address of hyphen contract
@@ -44,6 +43,7 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
         LibSwapper.Call[] calldata calls,
         IRangoHyphen.HyphenBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
         
         if (request.toToken != LibSwapper.ETH) {
@@ -73,6 +73,7 @@ contract RangoHyphenFacet is IRango, ReentrancyGuard, IRangoHyphen {
         IRangoHyphen.HyphenBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         HyphenStorage storage s = getHyphenStorage();
         uint256 amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
         // transfer tokens if necessary

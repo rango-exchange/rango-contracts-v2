@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibSwapper.sol";
 import "../../utils/ReentrancyGuard.sol";
+import "../../libraries/LibPausable.sol";
 
 contract RangoSwapperFacet is ReentrancyGuard{
     /// Events ///
@@ -30,6 +31,7 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of money that should be transfered
     function refund(address _tokenAddress, uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
+        LibPausable.enforceNotPaused();
         IERC20 ercToken = IERC20(_tokenAddress);
         uint balance = ercToken.balanceOf(address(this));
         require(balance >= _amount, "Insufficient balance");
@@ -45,6 +47,7 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of native token that should be transfered
     function refundNative(uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
+        LibPausable.enforceNotPaused();
         uint balance = address(this).balance;
         require(balance >= _amount, "Insufficient balance");
 
@@ -65,6 +68,7 @@ contract RangoSwapperFacet is ReentrancyGuard{
         bool nativeOut,
         address receiver
     ) external payable nonReentrant returns (bytes[] memory) {
+        LibPausable.enforceNotPaused();
         require(receiver != LibSwapper.ETH, "receiver cannot be address(0)");
         (bytes[] memory result, uint outputAmount) = LibSwapper.onChainSwapsInternal(request, calls, 0);
         LibSwapper.emitSwapEvent(request, outputAmount, receiver);

@@ -11,14 +11,14 @@ import "../../libraries/LibInterchain.sol";
 import "../../utils/LibTransform.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with Connext
 /// @author jeoffery
 /// @dev This facet should be added to diamond. This facet doesn't and shouldn't receive messages. Handling messages is done through middleware.
 contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.connext")
-    bytes32 internal constant CONNEXT_NAMESPACE = hex"ae9c2eb5a5d377d0a1adcaaba918ef89101ade4296b0ba754d74ad35f98f7afe";
+    bytes32 internal constant CONNEXT_NAMESPACE = keccak256("exchange.rango.facets.connext");
 
     struct ConnextStorage {
         /// @notice The address of connext contract
@@ -61,6 +61,7 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
         LibSwapper.Call[] calldata calls,
         ConnextBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount;
 
         // if toToken is native coin and the user has not paid fee in msg.value,
@@ -100,6 +101,7 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
         ConnextBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

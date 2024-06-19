@@ -8,14 +8,14 @@ import "../../interfaces/Interchain.sol";
 import "../../utils/LibTransform.sol";
 import "../../utils/ReentrancyGuard.sol";
 import "../../libraries/LibDiamond.sol";
+import "../../libraries/LibPausable.sol";
 
 /// @title The root contract that handles Rango's interaction with deBridge via DLN tool (DeSwap Liquidity Network)
 /// @author jeoffery
 /// @dev This facet should be added to diamond. This facet doesn't and shouldn't receive messages. Handling messages is done through middleware.
 contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.facets.deBridge")
-    bytes32 internal constant DEBRIDGE_NAMESPACE = hex"e551b477704d1635aa3f65d1252b54961348b6408b6cb32ae166e6f2870394e1";
+    bytes32 internal constant DEBRIDGE_NAMESPACE = keccak256("exchange.rango.facets.deBridge");
 
     struct DeBridgeStorage {
         /// @notice The address of dln source to initiate bridge
@@ -58,6 +58,7 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
         LibSwapper.Call[] calldata calls,
         DeBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint bridgeAmount;
         // if toToken is native coin and the user has not paid fee in msg.value,
         // then the user can pay bridge fee using output of swap.
@@ -94,6 +95,7 @@ contract RangoDeBridgeFacet is IRango, ReentrancyGuard, IRangoDeBridge {
         DeBridgeRequest memory request,
         RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
+        LibPausable.enforceNotPaused();
         uint amount = bridgeRequest.amount;
         address token = bridgeRequest.token;
         uint amountWithFee = amount + LibSwapper.sumFees(bridgeRequest);

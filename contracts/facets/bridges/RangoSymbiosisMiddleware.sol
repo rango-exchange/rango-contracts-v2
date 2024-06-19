@@ -15,8 +15,7 @@ import "../../utils/ReentrancyGuard.sol";
 /// @dev This is not a facet and is deployed separate from diamond.
 contract RangoSymbiosisMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMiddleware {
     /// Storage ///
-    /// @dev keccak256("exchange.rango.middleware.symbiosis")
-    bytes32 internal constant SYMBIOSIS_NAMESPACE = hex"3498a2475029c8778520c0bd317c0f7335b3d8a6f38fabc952ee4c84a5be51c9";
+    bytes32 internal constant SYMBIOSIS_NAMESPACE = keccak256("exchange.rango.middleware.symbiosis");
 
     function initSymbiosisMiddleware(
         address _owner,
