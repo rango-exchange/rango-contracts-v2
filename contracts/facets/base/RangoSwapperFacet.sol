@@ -31,7 +31,6 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of money that should be transfered
     function refund(address _tokenAddress, uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
-        LibPausable.enforceNotPaused();
         IERC20 ercToken = IERC20(_tokenAddress);
         uint balance = ercToken.balanceOf(address(this));
         require(balance >= _amount, "Insufficient balance");
@@ -47,7 +46,6 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of native token that should be transfered
     function refundNative(uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
-        LibPausable.enforceNotPaused();
         uint balance = address(this).balance;
         require(balance >= _amount, "Insufficient balance");
 
