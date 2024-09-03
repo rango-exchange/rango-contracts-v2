@@ -136,7 +136,7 @@ contract RangoYBridgeFacet is IRango, ReentrancyGuard, IRangoYBridge {
         );
 
         DstChainDescription memory dstDesc = DstChainDescription(
-            request.toChainId, request.dstToken, request.expectedDstChainTokenAmount, request.slippage
+            request.toChainId, request.dstToken, request.dstAggregatorAdaptor, request.expectedDstChainTokenAmount, request.slippage
         );
 
         // aggregator address and associated data are empty, because we only need bridging

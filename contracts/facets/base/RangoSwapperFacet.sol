@@ -31,6 +31,7 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of money that should be transfered
     function refund(address _tokenAddress, uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
+        LibPausable.enforceNotPaused();
         IERC20 ercToken = IERC20(_tokenAddress);
         uint balance = ercToken.balanceOf(address(this));
         require(balance >= _amount, "Insufficient balance");
@@ -46,10 +47,11 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @param _amount The amount of native token that should be transfered
     function refundNative(uint256 _amount) external {
         LibDiamond.enforceIsContractOwner();
+        LibPausable.enforceNotPaused();
         uint balance = address(this).balance;
         require(balance >= _amount, "Insufficient balance");
 
-        LibSwapper._sendToken(LibSwapper.ETH, _amount, msg.sender, true, false);
+        LibSwapper._sendToken(LibSwapper.ETH, _amount, msg.sender, false);
 
         emit LibSwapper.Refunded(LibSwapper.ETH, _amount);
     }
@@ -57,20 +59,18 @@ contract RangoSwapperFacet is ReentrancyGuard{
     /// @notice Does a simple on-chain swap
     /// @param request The general swap request containing from/to token and fee/affiliate rewards
     /// @param calls The list of DEX calls
-    /// @param nativeOut indicates that the output of swaps must be a native token
     /// @param receiver The address that should receive the output of swaps.
     /// @return The byte array result of all DEX calls
     function onChainSwaps(
         LibSwapper.SwapRequest memory request,
         LibSwapper.Call[] calldata calls,
-        bool nativeOut,
         address receiver
     ) external payable nonReentrant returns (bytes[] memory) {
         LibPausable.enforceNotPaused();
         require(receiver != LibSwapper.ETH, "receiver cannot be address(0)");
         (bytes[] memory result, uint outputAmount) = LibSwapper.onChainSwapsInternal(request, calls, 0);
         LibSwapper.emitSwapEvent(request, outputAmount, receiver);
-        LibSwapper._sendToken(request.toToken, outputAmount, receiver, nativeOut, false);
+        LibSwapper._sendToken(request.toToken, outputAmount, receiver, false);
         return result;
     }
 

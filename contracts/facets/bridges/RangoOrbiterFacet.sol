@@ -41,9 +41,6 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
         addOrbiterRouterContractsInternal(_addresses);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
     /// @notice Adds a list of new addresses to the whitelisted orbiter router contracts
     /// @param _addresses The list of new routers
     function addOrbiterRouterContracts(address[] calldata _addresses) public {
@@ -140,9 +137,9 @@ contract RangoOrbiterFacet is IRango, ReentrancyGuard, IRangoOrbiter {
         require(s.orbiterWhitelistedRouterContracts[request.routerContract], "Router not whitelisted");
         if (token != LibSwapper.ETH) {
             LibSwapper.approveMax(token, request.routerContract, amount);
-            IOrbiterRouterV3(request.routerContract).transferToken(token, request.recipient, amount, request.data);
+            IOrbiterRouterV3(request.routerContract).transferToken(token, request.maker, amount, request.data);
         } else {
-            IOrbiterRouterV3(request.routerContract).transfer{value: amount}(request.recipient, request.data);
+            IOrbiterRouterV3(request.routerContract).transfer{value: amount}(request.maker, request.data);
         }
     }
 

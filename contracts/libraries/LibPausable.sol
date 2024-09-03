@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-/// @title Reentrancy Guard
+/// @title Pausable Library
 /// @author 0xiDen
-/// @notice Abstract contract to provide protection against reentrancy
+/// @notice This library provides pausable feature across entire diamond protected methods. Be advised only methods that call `enforceNotPaused` will be protected!
 library LibPausable {
     /// Storage ///
-    bytes32 private constant NAMESPACE = keccak256("exchange.rango.pausable");
+    bytes32 private constant NAMESPACE = keccak256("exchange.rango.library.pausable");
 
     /// Types ///
 
@@ -40,7 +40,7 @@ library LibPausable {
         emit PausedStateUpdated(oldState, _paused);
     }
 
-    function enforceNotPaused() internal {
+    function enforceNotPaused() internal view {
         PausableStorage storage pausableStorage = getPausableStorage();
         require(pausableStorage.isPaused == false, "Paused");
     }

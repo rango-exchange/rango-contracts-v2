@@ -89,7 +89,7 @@ contract RangoWormholeMiddleware is ReentrancyGuard, IRango, RangoBaseInterchain
     function completeTransferWithPayload(
         address expectedToken,
         bytes memory vaas
-    ) external nonReentrant
+    ) external nonReentrant onlyWhenNotPaused
     {
         RangoWormholeMiddlewareStorage storage s = getRangoWormholeMiddlewareStorage();
         IWormholeTokenBridge whTokenBridge = IWormholeTokenBridge(s.wormholeRouter);

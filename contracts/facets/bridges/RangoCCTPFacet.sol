@@ -131,7 +131,6 @@ contract RangoCCTPFacet is IRango, ReentrancyGuard, IRangoCCTP {
         CCTPStorage storage s = getCCTPStorage();
         require(s.tokenMessenger != LibSwapper.ETH, 'CCTP tokenMessenger address not set');
         require(block.chainid != request.destinationChainId, 'Invalid destination Chain! Cannot bridge to the same network.');
-        require(token != LibSwapper.ETH, 'Invalid token');
         require(token == s.USDCTokenAddress, 'Token is not USDC');
 
         LibSwapper.approveMax(token, s.tokenMessenger, amount);

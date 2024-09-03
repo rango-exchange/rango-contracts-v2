@@ -12,8 +12,7 @@ import "../interfaces/IRango.sol";
 /// @notice library to provide swap functionality
 library LibSwapper {
 
-    /// @dev keccak256("exchange.rango.library.swapper")
-    bytes32 internal constant BASE_SWAPPER_NAMESPACE = hex"43da06808a8e54e76a41d6f7b48ddfb23969b1387a8710ef6241423a5aefe64a";
+    bytes32 internal constant BASE_SWAPPER_NAMESPACE = keccak256("exchange.rango.library.swapper");
 
     address payable constant ETH = payable(0x0000000000000000000000000000000000000000);
 
@@ -213,9 +212,7 @@ library LibSwapper {
         Call[] calldata calls,
         uint extraFee
     ) internal returns (uint out) {
-
-        bool isNative = request.fromToken == ETH;
-        uint minimumRequiredValue = (isNative ? request.platformFee + request.affiliateFee + request.amountIn + request.destinationExecutorFee : 0) + extraFee;
+        uint minimumRequiredValue = LibSwapper.getPreBridgeMinAmount(request) + extraFee;
         require(msg.value >= minimumRequiredValue, 'Send more ETH to cover input amount + fee');
 
         (, out) = onChainSwapsInternal(request, calls, extraFee);
@@ -259,7 +256,7 @@ library LibSwapper {
                 _sendToken(request.fromToken, fromBalanceAfter - fromBalanceBefore, msg.sender);
         }
         else {
-            require(fromBalanceAfter >= fromBalanceBefore - msg.value, "Source token balance on contract must not decrease after swap");
+            require(fromBalanceAfter >= fromBalanceBefore - msg.value + extraNativeFee, "Source token balance on contract must not decrease after swap");
             // When we are keeping extraNativeFee for bridgingFee, we should consider it in calculations.
             if (fromBalanceAfter > fromBalanceBefore - msg.value + extraNativeFee)
                 _sendToken(request.fromToken, fromBalanceAfter + msg.value - fromBalanceBefore - extraNativeFee, msg.sender);
@@ -270,7 +267,7 @@ library LibSwapper {
         uint secondaryBalance = toBalanceAfter - toBalanceBefore;
         require(secondaryBalance >= request.minimumAmountExpected, "Output is less than minimum expected");
 
-        return (result, secondaryBalance - (request.feeFromInputToken ? 0 : sumFees(request)));
+        return (result, secondaryBalance);
     }
 
     /// @notice Private function to handle fetching money from wallet to contract, reduce fee/affiliate, perform DEX calls
@@ -288,8 +285,8 @@ library LibSwapper {
             require(baseSwapperStorage.whitelistMethods[calls[i].target][sig], "Unauthorized call data!");
         }
 
-        // Get Fees
-        LibSwapper.collectFeesForSwap(request);
+        // Get Fees Before swap
+        LibSwapper.collectFeesBeforeSwap(request);
 
         // Execute swap Calls
         bytes[] memory returnData = new bytes[](calls.length);
@@ -310,6 +307,9 @@ library LibSwapper {
             returnData[i] = ret;
         }
 
+        // Get Fees After swap
+        LibSwapper.collectFeesAfterSwap(request);
+
         return returnData;
     }
 
@@ -318,8 +318,7 @@ library LibSwapper {
     /// @param spender The contract address that should be approved
     /// @param value The amount that should be approved
     function approve(address token, address spender, uint value) internal {
-        SafeERC20.forceApprove(IERC20(token), spender, 0);
-        SafeERC20.safeIncreaseAllowance(IERC20(token), spender, value);
+        SafeERC20.forceApprove(IERC20(token), spender, value);
     }
 
     /// @notice Approves an ERC20 token to a contract to transfer from the current contract, approves for inf value
@@ -329,11 +328,7 @@ library LibSwapper {
     function approveMax(address token, address spender, uint value) internal {
         uint256 currentAllowance = IERC20(token).allowance(address(this), spender);
         if (currentAllowance < value) {
-            if (currentAllowance != 0) {
-                // We set allowance to 0 if not already. tokens such as USDT require zero allowance first.
-                SafeERC20.forceApprove(IERC20(token), spender, 0);
-            }
-            SafeERC20.safeIncreaseAllowance(IERC20(token), spender, type(uint256).max);
+            SafeERC20.forceApprove(IERC20(token), spender, type(uint256).max);
         }
     }
 
@@ -349,6 +344,14 @@ library LibSwapper {
         return request.platformFee + request.affiliateFee + request.destinationExecutorFee;
     }
 
+     function getPreBridgeMinAmount(SwapRequest memory request) internal pure returns (uint256) {
+        bool isNative = request.fromToken == ETH;
+        if (request.feeFromInputToken) {
+            return (isNative ? request.platformFee + request.affiliateFee + request.amountIn + request.destinationExecutorFee : 0);
+        }
+        return (isNative ? request.amountIn : 0);
+    }
+
     function collectFeesForSwap(SwapRequest memory request) internal {
         BaseSwapperStorage storage baseSwapperStorage = getBaseSwapperStorage();
         // Get Platform fee
@@ -358,13 +361,13 @@ library LibSwapper {
         address feeToken = request.feeFromInputToken ? request.fromToken : request.toToken;
         if (hasPlatformFee || hasDestExecutorFee) {
             require(baseSwapperStorage.feeContractAddress != ETH, "Fee contract address not set");
-            _sendToken(feeToken, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, feeToken == ETH, false);
+            _sendToken(feeToken, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, false);
         }
 
         // Get affiliate fee
         if (hasAffiliateFee) {
             require(request.affiliatorAddress != ETH, "Invalid affiliatorAddress");
-            _sendToken(feeToken, request.affiliateFee, request.affiliatorAddress, feeToken == ETH, false);
+            _sendToken(feeToken, request.affiliateFee, request.affiliatorAddress, false);
         }
 
         // emit Fee event
@@ -389,18 +392,17 @@ library LibSwapper {
         if (!hasAnyFee) {
             return;
         }
-        bool isSourceNative = request.token == ETH;
         BaseSwapperStorage storage baseSwapperStorage = getBaseSwapperStorage();
 
         if (hasPlatformFee || hasDestExecutorFee) {
             require(baseSwapperStorage.feeContractAddress != ETH, "Fee contract address not set");
-            _sendToken(request.token, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, isSourceNative, false);
+            _sendToken(request.token, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, false);
         }
 
         // Get affiliate fee
         if (hasAffiliateFee) {
             require(request.affiliatorAddress != ETH, "Invalid affiliatorAddress");
-            _sendToken(request.token, request.affiliateFee, request.affiliatorAddress, isSourceNative, false);
+            _sendToken(request.token, request.affiliateFee, request.affiliatorAddress, false);
         }
 
         // emit Fee event
@@ -412,6 +414,18 @@ library LibSwapper {
             request.affiliateFee,
             request.dAppTag
         );
+    }
+
+    function collectFeesBeforeSwap(SwapRequest memory request) internal {
+        if (request.feeFromInputToken) {
+            collectFeesForSwap(request);
+        }
+    }
+
+    function collectFeesAfterSwap(SwapRequest memory request) internal {
+        if (!request.feeFromInputToken) {
+            collectFeesForSwap(request);
+        }
     }
 
     function collectFeesFromSender(IRango.RangoBridgeRequest memory request) internal {
@@ -429,7 +443,7 @@ library LibSwapper {
         if (hasPlatformFee || hasDestExecutorFee) {
             require(baseSwapperStorage.feeContractAddress != ETH, "Fee contract address not set");
             if (isSourceNative)
-                _sendToken(request.token, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, isSourceNative, false);
+                _sendToken(request.token, request.platformFee + request.destinationExecutorFee, baseSwapperStorage.feeContractAddress, false);
             else
                 SafeERC20.safeTransferFrom(
                     IERC20(request.token),
@@ -443,7 +457,7 @@ library LibSwapper {
         if (hasAffiliateFee) {
             require(request.affiliatorAddress != ETH, "Invalid affiliatorAddress");
             if (isSourceNative)
-                _sendToken(request.token, request.affiliateFee, request.affiliatorAddress, isSourceNative, false);
+                _sendToken(request.token, request.affiliateFee, request.affiliatorAddress, false);
             else
                 SafeERC20.safeTransferFrom(
                     IERC20(request.token),
@@ -466,27 +480,27 @@ library LibSwapper {
 
     /// @notice An internal function to send a token from the current contract to another contract or wallet
     /// @dev This function also can convert WETH to ETH before sending if _withdraw flat is set to true
-    /// @dev To send native token _nativeOut param should be set to true, otherwise we assume it's an ERC20 transfer
+    /// @dev To send native token _token param should be set to address zero, otherwise we assume it's an ERC20 transfer
     /// @param _token The token that is going to be sent to a wallet, ZERO address for native
     /// @param _amount The sent amount
     /// @param _receiver The receiver wallet address or contract
-    /// @param _nativeOut means the output is native token
     /// @param _withdraw If true, indicates that we should swap WETH to ETH before sending the money and _nativeOut must also be true
     function _sendToken(
         address _token,
         uint256 _amount,
         address _receiver,
-        bool _nativeOut,
         bool _withdraw
     ) internal {
         BaseSwapperStorage storage baseStorage = getBaseSwapperStorage();
         emit SendToken(_token, _amount, _receiver);
+        bool nativeOut = _token == LibSwapper.ETH;
 
-        if (_nativeOut) {
-            if (_withdraw) {
-                require(_token == baseStorage.WETH, "token mismatch");
-                IWETH(baseStorage.WETH).withdraw(_amount);
-            }
+        if (_withdraw) {
+            require(_token == baseStorage.WETH, "token mismatch");
+            IWETH(baseStorage.WETH).withdraw(_amount);
+        }
+
+        if (nativeOut) {
             _sendNative(_receiver, _amount);
         } else {
             SafeERC20.safeTransfer(IERC20(_token), _receiver, _amount);

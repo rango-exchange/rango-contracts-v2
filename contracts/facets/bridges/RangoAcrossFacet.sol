@@ -49,9 +49,6 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
         setAcrossRewardBytesInternal(acrossRewardBytes);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
     /// @notice Adds a list of new addresses to the whitelisted Across spokePools
     /// @param _addresses The list of new routers
     function addAcrossSpokePools(address[] calldata _addresses) public {

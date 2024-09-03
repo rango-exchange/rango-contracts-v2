@@ -13,6 +13,7 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
         address owner;
         address rangoDiamond;
         address WETH;
+        bool middlewaresPaused;
         mapping(address => bool) whitelistContracts;
         mapping (address => bool) whitelistMessagingContracts;
     }
@@ -41,6 +42,10 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
     /// @param previousOwner The previous owner
     /// @param newOwner The new owner
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    /// @notice Notifies that Rango's paused state is updated
+    /// @param _oldPausedState The previous paused state
+    /// @param _newPausedState The new fee wallet address
+    event PausedStateUpdated(bool _oldPausedState, bool _newPausedState);
 
     constructor(){updateOwnerInternal(tx.origin);}
 
@@ -141,6 +146,17 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
         emit ContractBlacklisted(contractAddress);
     }
 
+    /// @notice Sets paused state on Rango
+    /// @param _paused The desired state of being paused or not
+    function changePauseState(bool _paused) external onlyOwner {
+        WhitelistsMiddlewaresStorage storage s = getWhitelistsStorage();
+        
+        bool previousPausedState = s.middlewaresPaused;
+        s.middlewaresPaused = _paused;
+
+        emit PausedStateUpdated(previousPausedState, _paused);
+    }
+
     /// @notice returns true if the input contract address is whitelisted
     /// @param _contractAddress address of contract to be checked
     /// @return boolean whitelisted or not
@@ -178,6 +194,13 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
     function getRangoDiamond() external view returns (address) {
         WhitelistsMiddlewaresStorage storage whitelistStorage = getWhitelistsStorage();
         return whitelistStorage.rangoDiamond;
+    }
+
+    /// @notice returns whether the middlewares are in paused state
+    /// @return middlewaresPaused bool true if middlewares are paused. 
+    function getMiddlewaresPaused() external view returns (bool) {
+        WhitelistsMiddlewaresStorage storage whitelistStorage = getWhitelistsStorage();
+        return whitelistStorage.middlewaresPaused;
     }
 
     /// Internal and Private functions

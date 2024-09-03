@@ -45,7 +45,7 @@ contract RangoDeBridgeMiddleware is IRango, ReentrancyGuard, IExternalCallExecut
         bytes32 _orderId,
         address _fallbackAddress,
         bytes memory _payload
-    ) external payable returns (bool callSucceeded, bytes memory callResult) {
+    ) external payable onlyWhenNotPaused nonReentrant returns (bool callSucceeded, bytes memory callResult) {
         require(msg.sender == getDeBridgeStorage().dlnExtCallAdapterAddress,
             "onEtherReceived function can only be called by dln ext call adapter");
 
@@ -59,7 +59,7 @@ contract RangoDeBridgeMiddleware is IRango, ReentrancyGuard, IExternalCallExecut
         uint256 _transferredAmount,
         address _fallbackAddress,
         bytes memory _payload
-    ) external returns (bool callSucceeded, bytes memory callResult) {
+    ) external onlyWhenNotPaused nonReentrant returns (bool callSucceeded, bytes memory callResult) {
         require(msg.sender == getDeBridgeStorage().dlnExtCallAdapterAddress,
             "onERC20Received function can only be called by dln ext call adapter");
         _onReceived(_token, _transferredAmount, _payload);

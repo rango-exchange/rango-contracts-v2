@@ -15,6 +15,7 @@ interface IRangoYBridge {
     /// @param toChainId The network id of destination chain, ex: 56 for BSC
     /// @param dstToken token address in destination chain
     /// @param referrer referrer address
+    /// @param dstAggregatorAdaptor aggregator adapter in destination
     /// @param slippage slippage rate (only used if there is a swap on destination)
     /// @param expectedDstChainTokenAmount expected amount of tokens (this should be in the output token decimals)
     struct YBridgeRequest {
@@ -22,6 +23,7 @@ interface IRangoYBridge {
         uint32 toChainId;
         address dstToken;
         address referrer;
+        address dstAggregatorAdaptor;
         uint32 slippage;
         uint256 expectedDstChainTokenAmount;
     }

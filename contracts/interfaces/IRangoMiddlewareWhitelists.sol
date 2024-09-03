@@ -12,6 +12,7 @@ interface IRangoMiddlewareWhitelists {
     function updateWeth(address _weth) external;
     function getWeth() external view returns (address);
     function getRangoDiamond() external view returns (address);
+    function getMiddlewaresPaused() external view returns (bool);
 }
 
 

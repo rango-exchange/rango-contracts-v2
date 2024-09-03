@@ -78,12 +78,11 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         uint256 amount,
         bytes calldata message,
         address // executor
-    ) external payable override onlyMessageBus nonReentrant returns (ExecutionStatus) {
+    ) external payable override onlyMessageBus nonReentrant onlyWhenNotPaused returns (ExecutionStatus) {
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
 
-        LibSwapper.BaseSwapperStorage storage baseStorage = LibSwapper.getBaseSwapperStorage();
         address fromToken = token;
-        if (token == baseStorage.WETH) {
+        if (token == LibInterchain.getWeth()) {
             if (IERC20(token).balanceOf(address(this)) < amount) {
                 if (address(this).balance >= amount) {
                     fromToken = LibSwapper.ETH;
@@ -128,7 +127,7 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         uint64 srcChainId,
         bytes memory message,
         address // executor
-    ) external payable override onlyMessageBus nonReentrant returns (ExecutionStatus) {
+    ) external payable override onlyMessageBus nonReentrant onlyWhenNotPaused returns (ExecutionStatus) {
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
         (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(token, amount, m);
 
@@ -154,11 +153,10 @@ contract RangoCBridgeMiddleware is RangoBaseInterchainMiddleware, IRango, Messag
         uint64 srcChainId,
         bytes memory message,
         address // executor
-    ) external payable override onlyMessageBus nonReentrant returns (ExecutionStatus) {
+    ) external payable override onlyMessageBus nonReentrant onlyWhenNotPaused returns (ExecutionStatus) {
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));
-        LibSwapper.BaseSwapperStorage storage baseStorage = LibSwapper.getBaseSwapperStorage();
 
-        address sourceToken = m.bridgeRealOutput == LibSwapper.ETH && token == baseStorage.WETH ? LibSwapper.ETH : token;
+        address sourceToken = m.bridgeRealOutput == LibSwapper.ETH && token == LibInterchain.getWeth() ? LibSwapper.ETH : token;
 
         LibInterchain._sendTokenWithDApp(
             sourceToken,

@@ -21,8 +21,6 @@ contract RangoThorchainFacet is IRango, IRangoThorchain, ReentrancyGuard {
     /// @param expiration The expiration block number. If the tx is included after this block, it will be reverted.
     event ThorchainTxInitiated(address vault, address token, uint amount, string memo, uint expiration);
 
-    receive() external payable {}
-
     /// @notice Swap tokens if necessary, then pass it to RangoThorchain
     /// @dev Swap tokens if necessary, then pass it to RangoThorchain. If no swap is required (calls.length==0) the provided token is passed to RangoThorchain without change.
     /// @param request The swap information used to check input and output token addresses and balances, as well as the fees if any. Together with calls param, determines the swap logic before passing to Thorchain.

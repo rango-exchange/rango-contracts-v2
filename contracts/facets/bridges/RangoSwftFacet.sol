@@ -37,9 +37,6 @@ contract RangoSwftFacet is IRango, ReentrancyGuard, IRangoSwft {
         updateSwftContractAddressInternal(_swftContractAddress);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
     /// @notice update the Swft contract address
     /// @param _swftContractAddress The contract address of the SWFT
     function updateSwftContractAddress(address _swftContractAddress) public {

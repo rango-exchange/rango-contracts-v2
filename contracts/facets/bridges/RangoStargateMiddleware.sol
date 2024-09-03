@@ -42,9 +42,11 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
     /// Events
 
     /// @notice Emits when the Stargate address is updated
-    /// @param oldAddress The previous address
-    /// @param newAddress The new SGETH address
-    event StargateComposerAddressUpdated(address oldAddress, address newAddress, address oldSgethAddress, address sgethAddress);
+    /// @param oldComposerAddress The previous composer address
+    /// @param newComposerAddress The new composer address
+    /// @param oldSgethAddress The old SGETH address
+    /// @param newSgethAddress The new SGETH address
+    event StargateComposerAddressUpdated(address oldComposerAddress, address newComposerAddress, address oldSgethAddress, address newSgethAddress);
 
     /// @notice Emits when the Stargate address is updated
     /// @param oldTreasurerAddress The previous Treasurer address
@@ -82,7 +84,7 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         bytes calldata _message,
         address,
         bytes calldata
-    ) external payable {
+    ) external payable onlyWhenNotPaused nonReentrant {
         RangoStargateMiddlewareStorage storage s = getRangoStargateMiddlewareStorage();
         require(msg.sender == s.layerzeroEndpoint, "invalid sender");
         require(IStargateV2Treasurer(s.stargateV2Treasurer).stargates(_from) == true, "invalid stargate");
@@ -119,7 +121,7 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         address _token,
         uint256 amountLD,
         bytes memory payload
-    ) external payable override nonReentrant {
+    ) external payable override nonReentrant onlyWhenNotPaused {
         require(msg.sender == getRangoStargateMiddlewareStorage().stargateComposer,
             "sgReceive function can only be called by Stargate Composer");
         Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));

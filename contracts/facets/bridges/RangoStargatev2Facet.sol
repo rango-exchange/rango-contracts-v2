@@ -32,8 +32,6 @@ contract RangoStargateV2Facet is IRango, ReentrancyGuard, IRangoStargateV2 {
         updateStargateV2TreasurerInternal(treasurer);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
 
     /// @notice Emits when the stargatev2 treasurer contract address is updated
     /// @param _oldTreasurer The previous treasurer address
@@ -139,7 +137,7 @@ contract RangoStargateV2Facet is IRango, ReentrancyGuard, IRangoStargateV2 {
         uint value = (fromToken == LibSwapper.ETH ? inputAmount: 0 ) + request.nativeFee;
         IStargateV2(request.poolContract).send{value: value}(
             sendParam,
-            IStargateV2.MessagingFee(request.nativeFee, request.lzTokenFee),
+            IStargateV2.MessagingFee(request.nativeFee, 0),
             request.refundAddress == address(0) ? msg.sender : request.refundAddress
         ); 
         

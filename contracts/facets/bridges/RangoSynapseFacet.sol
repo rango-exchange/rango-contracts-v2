@@ -32,9 +32,6 @@ contract RangoSynapseFacet is IRango, ReentrancyGuard, IRangoSynapse {
     /// @param _newAddress The new address
     event SynapseAddressUpdated(address _oldAddress, address _newAddress);
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
     /// @notice Executes a DEX (arbitrary) call + a Synapse bridge call
     /// @param request The general swap request containing from/to token and fee/affiliate rewards
     /// @param calls The list of DEX calls, if this list is empty, it means that there is no DEX call and we are only bridging

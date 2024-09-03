@@ -38,9 +38,6 @@ contract RangoStargateFacet is IRango, ReentrancyGuard, IRangoStargate {
         updateStargateWidgetInternal(addresses.stargateWidget, addresses.partnerId);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
     /// @notice Emits when the stargate contract address is updated
     /// @param _oldComposer The previous composer address
     /// @param _oldRouterEth The previous routerEth address

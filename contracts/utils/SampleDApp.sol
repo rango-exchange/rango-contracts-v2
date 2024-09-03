@@ -63,8 +63,7 @@ contract SampleDApp is IRangoMessageReceiver, ReentrancyGuard {
             require(msg.value == amount, "Insufficient Eth");
         } else {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amount);
-            SafeERC20.forceApprove(IERC20(token), rangoContractToCall, 0);
-            SafeERC20.safeIncreaseAllowance(IERC20(token), rangoContractToCall, amount);
+            SafeERC20.forceApprove(IERC20(token), rangoContractToCall, amount);
         }
 
         // call rango for swap/bridge

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-import "../../libraries/LibDiamond.sol";
 import "../../libraries/LibInterchain.sol";
 import "../../interfaces/IRangoMiddlewareWhitelists.sol";
 
@@ -40,6 +39,12 @@ contract RangoBaseInterchainMiddleware {
     /// @notice used to limit access only to owner
     modifier onlyOwner() {
         require(msg.sender == getBaseInterchainMiddlewareStorage().owner, "should be called only by owner");
+        _;
+    }
+
+    /// @notice used to prevent execution 
+    modifier onlyWhenNotPaused() {
+        require(LibInterchain.getMiddlewaresPaused() == false, "middlewares are paused");
         _;
     }
 
@@ -126,5 +131,12 @@ contract RangoBaseInterchainMiddleware {
         assembly {
             s.slot := namespace
         }
+    }
+
+    /// @notice used for abi encoding
+    /// @param im an instance of RangoInterChainMessage struct
+    /// @return encoded format of the struct instance
+    function encodeIm(Interchain.RangoInterChainMessage memory im) external pure returns (bytes memory) {
+        return abi.encode(im);
     }
 }

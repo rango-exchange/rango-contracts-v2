@@ -48,7 +48,7 @@ contract RangoConnextMiddleware is ReentrancyGuard, IRango, IConnextReceiver, Ra
         address _originSender,
         uint32 _origin,
         bytes memory _callData
-    ) external payable nonReentrant returns (bytes memory) {
+    ) external payable nonReentrant onlyWhenNotPaused returns (bytes memory) {
         require(msg.sender == getRangoConnextMiddlewareStorage().connextBridge,
             "xReceive can only be called by Connext bridge");
         Interchain.RangoInterChainMessage memory m = abi.decode((_callData), (Interchain.RangoInterChainMessage));

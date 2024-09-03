@@ -12,13 +12,13 @@ struct SwapDescription {
 
 struct DstChainDescription {
     uint32 dstChainId;
-    address dstChainToken;  // IERC20
+    address dstChainToken; // IERC20
+    address dstAggregatorAdaptor;
     uint256 expectedDstChainTokenAmount;
     uint32 slippage;
 }
 
 interface IYBridge {
-    // according to example, we don't need aggregator address and data. because we mean only bridging
     function swapWithReferrer(
         address aggregatorAdaptor,
         SwapDescription memory swapDesc,

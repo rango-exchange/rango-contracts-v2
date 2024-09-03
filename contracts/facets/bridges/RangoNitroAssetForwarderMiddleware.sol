@@ -49,7 +49,7 @@ contract RangoNitroAssetForwarderMiddleware is IRango, ReentrancyGuard, RangoBas
         address tokenSent,
         uint256 amount,
         bytes memory message
-    ) external payable {
+    ) external payable onlyWhenNotPaused nonReentrant {
         require(msg.sender == getRangoNitroAssetForwarderMiddlewareStorage().nitroAssetForwarder, "unauthorized caller");
         // Note: When this function is called, the caller have already sent erc20 token or native token to this contract.
         //       When received token is native, the received token address ix 0xeeee...

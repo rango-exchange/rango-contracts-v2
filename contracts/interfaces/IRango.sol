@@ -14,7 +14,32 @@ interface IRango {
         string dAppName;
     }
 
-    enum BridgeType {Across, CBridge, Hop, Hyphen, Multichain, Stargate, Synapse, Thorchain, Symbiosis, Axelar, Voyager, Poly, OptimismBridge, ArbitrumBridge, Wormhole, AllBridge, CCTP, Connext, NitroAssetForwarder, DeBridge, YBridge, Swft, Orbiter}
+    enum BridgeType {
+        Across, 
+        CBridge, 
+        Hop, 
+        Hyphen, 
+        Multichain, 
+        Stargate, 
+        Synapse, 
+        Thorchain, 
+        Symbiosis, 
+        Axelar, 
+        Voyager, 
+        Poly, 
+        OptimismBridge, 
+        ArbitrumBridge, 
+        Wormhole, 
+        AllBridge, 
+        CCTP, 
+        Connext, 
+        NitroAssetForwarder, 
+        DeBridge, 
+        YBridge, 
+        Swft, 
+        Orbiter,
+        ChainFlip
+    }
 
     /// @notice Status of cross-chain swap
     /// @param Succeeded The whole process is success and end-user received the desired token in the destination

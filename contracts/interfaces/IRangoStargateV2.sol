@@ -18,7 +18,6 @@ interface IRangoStargateV2 {
         uint256 minAmountLD;
         address refundAddress;
         uint256 nativeFee;
-        uint256 lzTokenFee;
 
         bytes extraOptions; // Additional options supplied by the caller to be used in the LayerZero message.
         bytes composeMsg; // The composed message for the send() operation.

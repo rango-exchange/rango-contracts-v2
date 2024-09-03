@@ -14,4 +14,11 @@ interface IUniswapV3SwapRouter2 {
     }
 
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to
+    ) external payable returns (uint256 amountOut);
 }

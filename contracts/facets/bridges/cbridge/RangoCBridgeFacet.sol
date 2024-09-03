@@ -35,9 +35,6 @@ contract RangoCBridgeFacet is IRango, IRangoCBridge, ReentrancyGuard {
         updateRangoCBridgeMiddlewareAddressInternal(rangoCBridgeMiddlewareAddress);
     }
 
-    /// @notice Enables the contract to receive native ETH token from other contracts including WETH contract
-    receive() external payable {}
-
 
     /// @notice Emits when the cBridge address is updated
     /// @param oldAddress The previous address

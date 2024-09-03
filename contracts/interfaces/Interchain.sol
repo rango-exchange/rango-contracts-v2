@@ -40,6 +40,7 @@ interface Interchain {
         bytes encodedPath;
         uint256 deadline;
         uint256 amountOutMinimum;
+        bool isRouter2;
     }
 
     /// @notice The requested call data which is computed off-chain and passed to the contract

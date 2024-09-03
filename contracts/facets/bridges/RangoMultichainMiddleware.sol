@@ -63,7 +63,7 @@ contract RangoMultichainMiddleware is IRango, ReentrancyGuard, RangoBaseIntercha
         address receiver,
         uint256 amount,
         bytes calldata data
-    ) external payable nonReentrant onlyAllowedExecutors returns (bool success, bytes memory result){
+    ) external payable nonReentrant onlyAllowedExecutors onlyWhenNotPaused returns (bool success, bytes memory result){
         Interchain.RangoInterChainMessage memory m = abi.decode((data), (Interchain.RangoInterChainMessage));
         (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(token, amount, m);
         success = status == CrossChainOperationStatus.Succeeded;

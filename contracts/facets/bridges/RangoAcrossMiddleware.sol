@@ -63,7 +63,7 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         bool fillCompleted,
         address relayer,
         bytes memory message
-    ) external onlyWhitelistedCallers {
+    ) external onlyWhitelistedCallers onlyWhenNotPaused nonReentrant {
         if (fillCompleted == false) {
             return;
         }
@@ -88,7 +88,7 @@ contract RangoAcrossMiddleware is IRango, ReentrancyGuard, RangoBaseInterchainMi
         uint256 amount,
         address relayer,
         bytes memory message
-    ) external onlyWhitelistedCallers {
+    ) external onlyWhitelistedCallers onlyWhenNotPaused nonReentrant{
         // Note: When this function is called, the caller have already sent erc20 token.
         //       This function is not called with native token, and only receives erc20 tokens (including WETH)
         Interchain.RangoInterChainMessage memory m = abi.decode((message), (Interchain.RangoInterChainMessage));

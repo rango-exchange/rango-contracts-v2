@@ -157,7 +157,7 @@ library LibInterchain {
             SafeERC20.forceApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
-            emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "Uniswap-V2 call failed");
+            emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, false, "Uniswap-V2 call failed");
             SafeERC20.forceApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (false, _amount, shouldDeposit ? weth : _token);
         }
@@ -181,14 +181,15 @@ library LibInterchain {
             return (false, _amount, _token);
         }
 
-        bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == getWeth();
+        address weth = getWeth();
+        bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == weth;
         if (!shouldDeposit) {
             if (_token != action.tokenIn) {
                 // "bridged token must be the same as the tokenIn in uniswapV3"
                 return (false, _amount, _token);
             }
         } else {
-            IWETH(getWeth()).deposit{value : _amount}();
+            IWETH(weth).deposit{value : _amount}();
         }
 
         LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
@@ -196,29 +197,52 @@ library LibInterchain {
         address toToken = action.tokenOut;
         uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
 
-        try
-            IUniswapV3(action.dexAddress).exactInput(IUniswapV3.ExactInputParams({
-                path : action.encodedPath,
-                recipient : address(this),
-                deadline : action.deadline,
-                amountIn : _amount,
-                amountOutMinimum : action.amountOutMinimum
-            }))
-        returns (uint) {
-            emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
-            // Note: instead of using return amounts of exactInput,
-            //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
-            uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
-            SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
-            return (true, toBalanceAfter - toBalanceBefore, toToken);
-        } catch {
-            emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
-            SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
-            return (false, _amount, shouldDeposit ? getWeth() : _token);
+        if (action.isRouter2 == false) {
+            try
+                IUniswapV3(action.dexAddress).exactInput(IUniswapV3.ExactInputParams({
+                    path : action.encodedPath,
+                    recipient : address(this),
+                    deadline : action.deadline,
+                    amountIn : _amount,
+                    amountOutMinimum : action.amountOutMinimum
+                }))
+            returns (uint) {
+                emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
+                // Note: instead of using return amounts of exactInput,
+                //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
+                uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+                SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+                return (true, toBalanceAfter - toBalanceBefore, toToken);
+            } catch {
+                emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
+                SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+                return (false, _amount, shouldDeposit ? weth : _token);
+            }
+        }
+        else {
+             try
+                IUniswapV3(action.dexAddress).exactInput(IUniswapV3.ExactInputParamsRouter2({
+                    path : action.encodedPath,
+                    recipient : address(this),
+                    amountIn : _amount,
+                    amountOutMinimum : action.amountOutMinimum
+                }))
+            returns (uint) {
+                emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
+                // Note: instead of using return amounts of exactInput,
+                //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
+                uint toBalanceAfter = LibSwapper.getBalanceOf(toToken);
+                SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+                return (true, toBalanceAfter - toBalanceBefore, toToken);
+            } catch {
+                emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, false, "Uniswap-V3 call failed");
+                SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
+                return (false, _amount, shouldDeposit ? weth : _token);
+            }   
         }
     }
 
-    /// @notice Performs a uniswap-v2 operation
+    /// @notice Performs a contract call operation
     /// @param _message The interchain message that contains the swap info
     /// @param _amount The amount of input token
     /// @return ok Indicates that the swap operation was success or fail
@@ -352,7 +376,7 @@ library LibInterchain {
             }
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
-            emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, true, "Curve call failed");
+            emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, false, "Curve call failed");
             if (_token != LibSwapper.ETH) {
                 SafeERC20.forceApprove(IERC20(_token), action.routerContractAddress, 0);
             }
@@ -361,7 +385,7 @@ library LibInterchain {
     }
 
 
-    /// @notice Performs a uniswap-v2 operation
+    /// @notice Performs a post action operation
     /// @param _postAction The type of action to perform such as WRAP, UNWRAP
     /// @param _amount The amount of input token
     /// @return ok Indicates that the swap operation was success or fail
@@ -405,11 +429,11 @@ library LibInterchain {
             // "Cannot wrap non-ETH tokens"
             return (false, _amount, _token);
         }
+        address weth = getWeth();
+        IWETH(weth).deposit{value: _amount}();
+        emit SubActionDone(Interchain.CallSubActionType.WRAP, weth, true, "");
 
-        IWETH(getWeth()).deposit{value: _amount}();
-        emit SubActionDone(Interchain.CallSubActionType.WRAP, getWeth(), true, "");
-
-        return (true, _amount, getWeth());
+        return (true, _amount, weth);
     }
 
     /// @notice Performs a WETH.deposit operation
@@ -420,12 +444,13 @@ library LibInterchain {
         address _token,
         uint _amount
     ) private returns (bool ok, uint256 amountOut, address outToken) {
-        if (_token != getWeth())
+        address weth = getWeth();
+        if (_token != weth)
             // revert("Non-WETH tokens unwrapped");
             return (false, _amount, _token);
 
-        IWETH(getWeth()).withdraw(_amount);
-        emit SubActionDone(Interchain.CallSubActionType.UNWRAP, getWeth(), true, "");
+        IWETH(weth).withdraw(_amount);
+        emit SubActionDone(Interchain.CallSubActionType.UNWRAP, weth, true, "");
 
         return (true, _amount, LibSwapper.ETH);
     }
@@ -473,18 +498,18 @@ library LibInterchain {
         }
     }
 
-    /// @notice used for abi encoding
-    /// @param im an instance of RangoInterChainMessage struct
-    /// @return encoded format of the struct instance
-    function encodeIm(Interchain.RangoInterChainMessage memory im) external pure returns (bytes memory) {
-        return abi.encode(im);
-    }
-
-    /// @notice get wrapped token address on the current chain from shared storage contract
+        /// @notice get wrapped token address on the current chain from shared storage contract
     /// @return WETH address
     function getWeth() internal view returns(address) {
         address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
         return IRangoMiddlewareWhitelists(whitelistsContractAddress).getWeth();
+    }
+
+    /// @notice returns whether the middlewares are in paused state
+    /// @return middlewaresPaused bool true if middlewares are paused. 
+    function getMiddlewaresPaused() internal view returns (bool) {
+        address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
+        return IRangoMiddlewareWhitelists(whitelistsContractAddress).getMiddlewaresPaused();
     }
 
     /// @notice A utility function to fetch storage from a predefined random slot using assembly

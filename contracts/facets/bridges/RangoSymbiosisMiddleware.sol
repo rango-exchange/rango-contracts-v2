@@ -83,7 +83,7 @@ contract RangoSymbiosisMiddleware is IRango, ReentrancyGuard, RangoBaseInterchai
         uint256 amount,
         address token,
         Interchain.RangoInterChainMessage memory receivedMessage
-    ) external payable nonReentrant {
+    ) external payable nonReentrant onlyWhenNotPaused {
         require(msg.sender == getSymbiosisStorage().symbiosisMetaRouter, "not meta router");
         SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amount);
         (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(token, amount, receivedMessage);

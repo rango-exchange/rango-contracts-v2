@@ -74,7 +74,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
         string calldata sourceChain,
         string calldata sourceAddress,
         bytes calldata payload
-    ) external payable nonReentrant {
+    ) external payable nonReentrant onlyWhenNotPaused{
         SatelliteStorage storage s = getSatelliteStorage();
         bytes32 payloadHash = keccak256(payload);
         if (!IAxelarGateway(s.gatewayAddress).validateContractCall(commandId, sourceChain, sourceAddress, payloadHash)) revert NotApprovedByGateway();
@@ -89,7 +89,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
         bytes calldata payload,
         string calldata tokenSymbol,
         uint256 amount
-    ) external payable nonReentrant {
+    ) external payable nonReentrant onlyWhenNotPaused {
         SatelliteStorage storage s = getSatelliteStorage();
         bytes32 payloadHash = keccak256(payload);
         if (!IAxelarGateway(s.gatewayAddress).validateContractCallAndMint(commandId, sourceChain, sourceAddress, payloadHash, tokenSymbol, amount))

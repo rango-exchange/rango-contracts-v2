@@ -130,7 +130,7 @@ contract RangoConnextFacet is IRango, ReentrancyGuard, IRangoConnext {
             token,
             amount,
             request.receiver,
-            request.destinationDomain,
+            request.toChainId,
             request.bridgeType == ConnextBridgeType.TRANSFER_WITH_MESSAGE,
             hasDestSwap,
             uint8(BridgeType.Connext),

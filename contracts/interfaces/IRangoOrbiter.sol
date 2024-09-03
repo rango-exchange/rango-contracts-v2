@@ -9,10 +9,12 @@ import "./IRango.sol";
 interface IRangoOrbiter {
     /// @notice The request object for Orbiter bridge call
     /// @param routerContract The address of Orbiter router contract
-    /// @param recipient The address of destination wallet to receive funds
-    /// @param data The bytes data to be passed to orbiter router
+    /// @param maker The address of endpoint (maker) of the route
+    /// @param recipient The address of destination wallet to receive funds, used for emitting.
+    /// @param data The bytes data to be passed to orbiter router. 
     struct OrbiterBridgeRequest {
         address routerContract;
+        address maker;
         address recipient;
         bytes data;
     }
