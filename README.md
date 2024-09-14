@@ -1,13 +1,4 @@
-# Sample Hardhat Project
+# Rango Protocol Smart Contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+This repo contains the smart contract code for Rango.
+The main contract, RangoDiamond uses EIP-2535 Diamond Standard with each bridge having its own facet and if necessary, a middleware contract.  
