@@ -141,7 +141,7 @@ contract RangoChainFlipFacet is IRango, ReentrancyGuard, IRangoChainFlip {
                     request.dstToken,
                     request.message,
                     request.gasAmount,
-                    request.srcToken,
+                    token,
                     amount,
                     request.cfParameters
                 );
@@ -160,7 +160,7 @@ contract RangoChainFlipFacet is IRango, ReentrancyGuard, IRangoChainFlip {
                     request.dstChain,
                     request.dstAddress,
                     request.dstToken,
-                    request.srcToken,
+                    token,
                     amount,
                     request.cfParameters
                 );

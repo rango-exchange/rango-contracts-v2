@@ -13,7 +13,6 @@ interface IRangoChainFlip {
     /// @param dstToken Token to be received on the destination chain.
     /// @param message Message that is passed to the destination address on the destination. It must be shorter than 10k bytes.
     /// @param gasAmount Gas budget for the call on the destination chain. This amount is based on the source asset and will be subtracted from the input amount and swapped to pay for gas.
-    /// @param srcToken Address of the token to be swapped from the source chain.
     /// @param cfParameters Additional metadata for future features. Currently unused.
     struct ChainFlipBridgeRequest {
         uint32 dstChain;
@@ -21,7 +20,6 @@ interface IRangoChainFlip {
         uint32 dstToken;
         bytes message;
         uint256 gasAmount;
-        address srcToken;
         bytes cfParameters;
     }
 

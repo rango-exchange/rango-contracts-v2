@@ -13,9 +13,9 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
         address owner;
         address rangoDiamond;
         address WETH;
-        bool middlewaresPaused;
+        mapping(address => bool) middlewaresPaused;
         mapping(address => bool) whitelistContracts;
-        mapping (address => bool) whitelistMessagingContracts;
+        mapping(address => bool) whitelistMessagingContracts;
     }
 
     /// @notice Emits when wrapped token address is updated
@@ -45,7 +45,8 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
     /// @notice Notifies that Rango's paused state is updated
     /// @param _oldPausedState The previous paused state
     /// @param _newPausedState The new fee wallet address
-    event PausedStateUpdated(bool _oldPausedState, bool _newPausedState);
+    /// @param _middlewareAddress The address of the middleware
+    event PausedStateUpdated(bool _oldPausedState, bool _newPausedState, address indexed _middlewareAddress);
 
     constructor(){updateOwnerInternal(tx.origin);}
 
@@ -146,15 +147,27 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
         emit ContractBlacklisted(contractAddress);
     }
 
-    /// @notice Sets paused state on Rango
+    /// @notice Sets paused state on a middleware
     /// @param _paused The desired state of being paused or not
-    function changePauseState(bool _paused) external onlyOwner {
+    function changePauseState(bool _paused, address _middlewareAddress) external onlyOwner {
         WhitelistsMiddlewaresStorage storage s = getWhitelistsStorage();
         
-        bool previousPausedState = s.middlewaresPaused;
-        s.middlewaresPaused = _paused;
+        bool previousPausedState = s.middlewaresPaused[_middlewareAddress];
+        s.middlewaresPaused[_middlewareAddress] = _paused;
 
-        emit PausedStateUpdated(previousPausedState, _paused);
+        emit PausedStateUpdated(previousPausedState, _paused, _middlewareAddress);
+    }
+
+    /// @notice Sets paused state on a list of middlewares
+    /// @param _paused The desired state of being paused or not
+    function changePauseState(bool _paused, address[] calldata _middlewareAddresses) external onlyOwner {
+        WhitelistsMiddlewaresStorage storage s = getWhitelistsStorage();    
+        for (uint i = 0; i < _middlewareAddresses.length; i++) {
+            address _middlewareAddress = _middlewareAddresses[i];
+            bool previousPausedState = s.middlewaresPaused[_middlewareAddress];
+            s.middlewaresPaused[_middlewareAddress] = _paused;
+            emit PausedStateUpdated(previousPausedState, _paused, _middlewareAddress);
+        }
     }
 
     /// @notice returns true if the input contract address is whitelisted
@@ -198,9 +211,9 @@ contract RangoMiddlewaresWhitelistsStorage is IRangoMiddlewareWhitelists {
 
     /// @notice returns whether the middlewares are in paused state
     /// @return middlewaresPaused bool true if middlewares are paused. 
-    function getMiddlewaresPaused() external view returns (bool) {
+    function isMiddlewaresPaused(address _middleware) external view returns (bool) {
         WhitelistsMiddlewaresStorage storage whitelistStorage = getWhitelistsStorage();
-        return whitelistStorage.middlewaresPaused;
+        return whitelistStorage.middlewaresPaused[_middleware];
     }
 
     /// Internal and Private functions

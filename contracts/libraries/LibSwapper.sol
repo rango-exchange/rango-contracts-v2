@@ -212,7 +212,7 @@ library LibSwapper {
         Call[] calldata calls,
         uint extraFee
     ) internal returns (uint out) {
-        uint minimumRequiredValue = LibSwapper.getPreBridgeMinAmount(request) + extraFee;
+        uint minimumRequiredValue = getPreBridgeMinAmount(request) + extraFee;
         require(msg.value >= minimumRequiredValue, 'Send more ETH to cover input amount + fee');
 
         (, out) = onChainSwapsInternal(request, calls, extraFee);
@@ -286,7 +286,7 @@ library LibSwapper {
         }
 
         // Get Fees Before swap
-        LibSwapper.collectFeesBeforeSwap(request);
+        collectFeesBeforeSwap(request);
 
         // Execute swap Calls
         bytes[] memory returnData = new bytes[](calls.length);
@@ -308,7 +308,7 @@ library LibSwapper {
         }
 
         // Get Fees After swap
-        LibSwapper.collectFeesAfterSwap(request);
+        collectFeesAfterSwap(request);
 
         return returnData;
     }
@@ -498,6 +498,7 @@ library LibSwapper {
         if (_withdraw) {
             require(_token == baseStorage.WETH, "token mismatch");
             IWETH(baseStorage.WETH).withdraw(_amount);
+            nativeOut = true;
         }
 
         if (nativeOut) {

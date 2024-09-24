@@ -44,7 +44,7 @@ contract RangoBaseInterchainMiddleware {
 
     /// @notice used to prevent execution 
     modifier onlyWhenNotPaused() {
-        require(LibInterchain.getMiddlewaresPaused() == false, "middlewares are paused");
+        require(LibInterchain.isMiddlewaresPaused(address(this)) == false, "paused");
         _;
     }
 

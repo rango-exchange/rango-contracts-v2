@@ -181,6 +181,20 @@ library LibInterchain {
             return (false, _amount, _token);
         }
 
+        address toToken = action.tokenOut;
+        {
+            bytes memory encodedPath = action.encodedPath;
+            address toTokenFromPath;
+            uint256 encodedPathLen = action.encodedPath.length;
+            assembly {
+                toTokenFromPath := mload(add(encodedPath, encodedPathLen))
+            }
+            if (toTokenFromPath != toToken) {
+                // swap output token address mismatch
+                return (false, _amount, _token);
+            }
+        }
+
         address weth = getWeth();
         bool shouldDeposit = _token == LibSwapper.ETH && action.tokenIn == weth;
         if (!shouldDeposit) {
@@ -193,8 +207,7 @@ library LibInterchain {
         }
 
         LibSwapper.approve(action.tokenIn, action.dexAddress, _amount);
-
-        address toToken = action.tokenOut;
+        
         uint toBalanceBefore = LibSwapper.getBalanceOf(toToken);
 
         if (action.isRouter2 == false) {
@@ -305,7 +318,7 @@ library LibInterchain {
             bytes memory data = action.callData;
             uint256 index = action.startIndexForAmount;
             // Avoid malicious overwriting of function sig or invalid location:
-            if (index < 4 || index > (data.length - 32))
+            if (index < 4 || data.length < 32 || index > (data.length - 32))
                 return (false, _amount, _token);
             assembly {
                 mstore(add(data, add(index,32)), _amount)
@@ -498,18 +511,19 @@ library LibInterchain {
         }
     }
 
-        /// @notice get wrapped token address on the current chain from shared storage contract
+    /// @notice get wrapped token address on the current chain from shared storage contract
     /// @return WETH address
     function getWeth() internal view returns(address) {
         address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
         return IRangoMiddlewareWhitelists(whitelistsContractAddress).getWeth();
     }
 
-    /// @notice returns whether the middlewares are in paused state
+    /// @notice returns whether a middleware is in paused state
+    /// @param _middleware The middleware address to change the pause state. 
     /// @return middlewaresPaused bool true if middlewares are paused. 
-    function getMiddlewaresPaused() internal view returns (bool) {
+    function isMiddlewaresPaused(address _middleware) internal view returns (bool) {
         address whitelistsContractAddress = getLibInterchainStorage().whitelistsStorageContract;
-        return IRangoMiddlewareWhitelists(whitelistsContractAddress).getMiddlewaresPaused();
+        return IRangoMiddlewareWhitelists(whitelistsContractAddress).isMiddlewaresPaused(_middleware);
     }
 
     /// @notice A utility function to fetch storage from a predefined random slot using assembly
