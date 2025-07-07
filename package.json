@@ -6,7 +6,7 @@
     "@ethersproject/providers": "^5.7.2",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.13",
     "@nomiclabs/hardhat-etherscan": "^3.1.2",
-    "@openzeppelin/contracts": "^4.7.3",
+    "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "^4.8.0",
     "@paraswap/sdk": "6.1.0",
     "@typechain/ethers-v5": "^10.1.0",
