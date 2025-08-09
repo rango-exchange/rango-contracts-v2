@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-import "../../libraries/LibInterchain2.sol";
+import "../../libraries/LibInterchainV2.sol";
 import "../../interfaces/IRangoMiddlewareWhitelists.sol";
 
 // @title The base contract to be used as a parent of middleware classes
 // @author George
 // @dev Note that this is not a facet and should be extended and deployed separately.
-contract RangoBaseInterchainMiddleware {
+contract RangoBaseInterchainMiddlewareV2 {
     /// Storage ///
     bytes32 internal constant BASE_MIDDLEWARE_CONTRACT_NAMESPACE = keccak256("exchange.rango.middleware.base");
 
@@ -33,7 +33,7 @@ contract RangoBaseInterchainMiddleware {
     ) public onlyOwner {
         require(_owner != address(0));
         updateOwnerInternal(_owner);
-        LibInterchain.updateWhitelistsContractAddress(_whitelistsContract);
+        LibInterchainV2.updateWhitelistsContractAddress(_whitelistsContract);
     }
 
     /// @notice used to limit access only to owner
@@ -44,7 +44,7 @@ contract RangoBaseInterchainMiddleware {
 
     /// @notice used to prevent execution 
     modifier onlyWhenNotPaused() {
-        require(LibInterchain.isMiddlewaresPaused(address(this)) == false, "paused");
+        require(LibInterchainV2.isMiddlewaresPaused(address(this)) == false, "paused");
         _;
     }
 
@@ -52,7 +52,7 @@ contract RangoBaseInterchainMiddleware {
     modifier onlyDiamond() {
         // only used by CBridge for now
         {
-            address s = LibInterchain.getLibInterchainStorage().whitelistsStorageContract;
+            address s = LibInterchainV2.getLibInterchainStorage().whitelistsStorageContract;
             address rangoDiamond = IRangoMiddlewareWhitelists(s).getRangoDiamond();
             require(msg.sender == rangoDiamond, "should be called only from diamond");
         }
@@ -72,7 +72,7 @@ contract RangoBaseInterchainMiddleware {
     /// @notice returns address of whitelists storage saved in LibInterchain
     /// @return whitelistsStorageContract address
     function getWhitelistsStorageContractAddress() external view returns (address) {
-        return LibInterchain.getLibInterchainStorage().whitelistsStorageContract;
+        return LibInterchainV2.getLibInterchainStorage().whitelistsStorageContract;
     }
 
     /// Administration & Control
@@ -85,7 +85,7 @@ contract RangoBaseInterchainMiddleware {
     /// @notice updates the address of whitelists storage contract address
     /// @param newAddress the new address for whitelists storage
     function updateWhitelistsContractAddress(address newAddress) external onlyOwner {
-        LibInterchain.updateWhitelistsContractAddress(newAddress);
+        LibInterchainV2.updateWhitelistsContractAddress(newAddress);
     }
 
     /// @notice Transfers an ERC20 token from this contract to msg.sender
@@ -113,7 +113,7 @@ contract RangoBaseInterchainMiddleware {
         (bool sent,) = msg.sender.call{value : _amount}("");
         require(sent, "failed to send native");
 
-        emit Refunded(LibSwapper2.ETH, _amount);
+        emit Refunded(LibSwapperV2.ETH, _amount);
     }
 
     /// Internal and Private functions

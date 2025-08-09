@@ -11,9 +11,9 @@ import "../interfaces/IWETH.sol";
 import "../interfaces/Interchain.sol";
 import "../interfaces/IRangoMessageReceiver.sol";
 import "../interfaces/IRangoMiddlewareWhitelists.sol";
-import "./LibSwapper2.sol";
+import "./LibSwapperV2.sol";
 
-library LibInterchain {
+library LibInterchainV2 {
     /// Storage ///
     bytes32 internal constant LIBINTERCHAIN_CONTRACT_NAMESPACE = keccak256("exchange.rango.library.interchain");
 
@@ -74,7 +74,7 @@ library LibInterchain {
         uint _amount,
         Interchain.RangoInterChainMessage memory m
     ) internal returns (address, uint256 dstAmount, IRango2.CrossChainOperationStatus status) {
-        address sourceToken = m.bridgeRealOutput == LibSwapper2.ETH && _token == getWeth() ? LibSwapper2.ETH : _token;
+        address sourceToken = m.bridgeRealOutput == LibSwapperV2.ETH && _token == getWeth() ? LibSwapperV2.ETH : _token;
 
         bool ok = true;
         address receivedToken = sourceToken;
@@ -126,7 +126,7 @@ library LibInterchain {
             return (false, _amount, _token);
         }
 
-        bool shouldDeposit = _token == LibSwapper2.ETH && action.path[0] == weth;
+        bool shouldDeposit = _token == LibSwapperV2.ETH && action.path[0] == weth;
         if (!shouldDeposit) {
             if (_token != action.path[0]) {
                 // "bridged token must be the same as the first token in destination swap path"
@@ -136,10 +136,10 @@ library LibInterchain {
             IWETH(weth).deposit{value : _amount}();
         }
 
-        LibSwapper2.approve(action.path[0], action.dexAddress, _amount);
+        LibSwapperV2.approve(action.path[0], action.dexAddress, _amount);
 
         address toToken = action.path[action.path.length - 1];
-        uint toBalanceBefore = LibSwapper2.getBalanceOf(toToken);
+        uint toBalanceBefore = LibSwapperV2.getBalanceOf(toToken);
 
         try
             IUniswapV2(action.dexAddress).swapExactTokensForTokens(
@@ -153,7 +153,7 @@ library LibInterchain {
             emit ActionDone(Interchain.ActionType.UNI_V2, action.dexAddress, true, "");
             // Note: instead of using return amounts of swapExactTokensForTokens,
             //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees
-            uint toBalanceAfter = LibSwapper2.getBalanceOf(toToken);
+            uint toBalanceAfter = LibSwapperV2.getBalanceOf(toToken);
             SafeERC20.forceApprove(IERC20(action.path[0]), action.dexAddress, 0);
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
@@ -196,7 +196,7 @@ library LibInterchain {
         }
 
         address weth = getWeth();
-        bool shouldDeposit = _token == LibSwapper2.ETH && action.tokenIn == weth;
+        bool shouldDeposit = _token == LibSwapperV2.ETH && action.tokenIn == weth;
         if (!shouldDeposit) {
             if (_token != action.tokenIn) {
                 // "bridged token must be the same as the tokenIn in uniswapV3"
@@ -206,9 +206,9 @@ library LibInterchain {
             IWETH(weth).deposit{value : _amount}();
         }
 
-        LibSwapper2.approve(action.tokenIn, action.dexAddress, _amount);
+        LibSwapperV2.approve(action.tokenIn, action.dexAddress, _amount);
         
-        uint toBalanceBefore = LibSwapper2.getBalanceOf(toToken);
+        uint toBalanceBefore = LibSwapperV2.getBalanceOf(toToken);
 
         if (action.isRouter2 == false) {
             try
@@ -223,7 +223,7 @@ library LibInterchain {
                 emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
                 // Note: instead of using return amounts of exactInput,
                 //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
-                uint toBalanceAfter = LibSwapper2.getBalanceOf(toToken);
+                uint toBalanceAfter = LibSwapperV2.getBalanceOf(toToken);
                 SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
                 return (true, toBalanceAfter - toBalanceBefore, toToken);
             } catch {
@@ -244,7 +244,7 @@ library LibInterchain {
                 emit ActionDone(Interchain.ActionType.UNI_V3, action.dexAddress, true, "");
                 // Note: instead of using return amounts of exactInput,
                 //       we get the diff balance of before and after. This prevents errors for tokens with transfer fees.
-                uint toBalanceAfter = LibSwapper2.getBalanceOf(toToken);
+                uint toBalanceAfter = LibSwapperV2.getBalanceOf(toToken);
                 SafeERC20.forceApprove(IERC20(action.tokenIn), action.dexAddress, 0);
                 return (true, toBalanceAfter - toBalanceBefore, toToken);
             } catch {
@@ -279,7 +279,7 @@ library LibInterchain {
         address sourceToken = _token;
 
         if (action.preAction == Interchain.CallSubActionType.WRAP) {
-            if (_token != LibSwapper2.ETH) {
+            if (_token != LibSwapperV2.ETH) {
                 // "Cannot wrap non-native"
                 return (false, _amount, _token);
             }
@@ -293,7 +293,7 @@ library LibInterchain {
                 // "Cannot unwrap non-WETH"
                 return (false, _amount, _token);
             }
-            if (action.tokenIn != LibSwapper2.ETH) {
+            if (action.tokenIn != LibSwapperV2.ETH) {
                 // "action.tokenIn must be ETH"
                 return (false, _amount, _token);
             }
@@ -308,11 +308,11 @@ library LibInterchain {
         if (!ok)
             return (false, _amount, _token);
 
-        if (sourceToken != LibSwapper2.ETH)
-            LibSwapper2.approve(sourceToken, action.spender, _amount);
+        if (sourceToken != LibSwapperV2.ETH)
+            LibSwapperV2.approve(sourceToken, action.spender, _amount);
 
-        uint value = sourceToken == LibSwapper2.ETH ? _amount : 0;
-        uint toBalanceBefore = LibSwapper2.getBalanceOf(_message.toToken);
+        uint value = sourceToken == LibSwapperV2.ETH ? _amount : 0;
+        uint toBalanceBefore = LibSwapperV2.getBalanceOf(_message.toToken);
 
         if (action.overwriteAmount == true) {
             bytes memory data = action.callData;
@@ -327,15 +327,15 @@ library LibInterchain {
 
         (bool success, bytes memory ret) = action.target.call{value: value}(action.callData);
 
-        if (sourceToken != LibSwapper2.ETH)
+        if (sourceToken != LibSwapperV2.ETH)
             SafeERC20.forceApprove(IERC20(sourceToken), action.spender, 0);
 
         if (success) {
             emit ActionDone(Interchain.ActionType.CALL, action.target, true, "");
-            uint toBalanceAfter = LibSwapper2.getBalanceOf(_message.toToken);
+            uint toBalanceAfter = LibSwapperV2.getBalanceOf(_message.toToken);
             return (true, toBalanceAfter - toBalanceBefore, _message.toToken);
         } else {
-            emit ActionDone(Interchain.ActionType.CALL, action.target, false, LibSwapper2._getRevertMsg(ret));
+            emit ActionDone(Interchain.ActionType.CALL, action.target, false, LibSwapperV2._getRevertMsg(ret));
             return (false, _amount, sourceToken);
         }
     }
@@ -357,7 +357,7 @@ library LibInterchain {
         }
 
         uint value = 0;
-        if (_token == LibSwapper2.ETH) {
+        if (_token == LibSwapperV2.ETH) {
             if (action.routes[0] != address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) {
                 return (false, _amount, _token);
             }
@@ -366,11 +366,11 @@ library LibInterchain {
             if (_token != action.routes[0]) {
                 return (false, _amount, _token);
             }
-            LibSwapper2.approve(_token, action.routerContractAddress, _amount);
+            LibSwapperV2.approve(_token, action.routerContractAddress, _amount);
         }
 
         address toToken = action.toToken;
-        uint toBalanceBefore = LibSwapper2.getBalanceOf(toToken);
+        uint toBalanceBefore = LibSwapperV2.getBalanceOf(toToken);
 
         try
             ICurve(action.routerContractAddress).exchange{value: value}(
@@ -383,14 +383,14 @@ library LibInterchain {
             )
         returns (uint256) {
             emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, true, "");
-            uint toBalanceAfter = LibSwapper2.getBalanceOf(toToken);
-            if (_token != LibSwapper2.ETH) {
+            uint toBalanceAfter = LibSwapperV2.getBalanceOf(toToken);
+            if (_token != LibSwapperV2.ETH) {
                 SafeERC20.forceApprove(IERC20(_token), action.routerContractAddress, 0);
             }
             return (true, toBalanceAfter - toBalanceBefore, toToken);
         } catch {
             emit ActionDone(Interchain.ActionType.CURVE, action.routerContractAddress, false, "Curve call failed");
-            if (_token != LibSwapper2.ETH) {
+            if (_token != LibSwapperV2.ETH) {
                 SafeERC20.forceApprove(IERC20(_token), action.routerContractAddress, 0);
             }
             return (false, _amount, _token);
@@ -410,7 +410,7 @@ library LibInterchain {
     ) private returns (bool ok, uint256 amountOut, address outToken) {
 
         if (_postAction == Interchain.CallSubActionType.WRAP) {
-            if (_token != LibSwapper2.ETH) {
+            if (_token != LibSwapperV2.ETH) {
                 // "Cannot wrap non-native"
                 return (false, _amount, _token);
             }
@@ -438,7 +438,7 @@ library LibInterchain {
         address _token,
         uint _amount
     ) private returns (bool ok, uint256 amountOut, address outToken) {
-        if (_token != LibSwapper2.ETH) {
+        if (_token != LibSwapperV2.ETH) {
             // "Cannot wrap non-ETH tokens"
             return (false, _amount, _token);
         }
@@ -465,7 +465,7 @@ library LibInterchain {
         IWETH(weth).withdraw(_amount);
         emit SubActionDone(Interchain.CallSubActionType.UNWRAP, weth, true, "");
 
-        return (true, _amount, LibSwapper2.ETH);
+        return (true, _amount, LibSwapperV2.ETH);
     }
 
     /// @notice An internal function to send a token from the current contract to another contract or wallet
@@ -483,12 +483,12 @@ library LibInterchain {
         address _dAppReceiverContract,
         IRangoMessageReceiver.ProcessStatus processStatus
     ) internal {
-        bool thereIsAMessage = _dAppReceiverContract != LibSwapper2.ETH;
+        bool thereIsAMessage = _dAppReceiverContract != LibSwapperV2.ETH;
         address immediateReceiver = thereIsAMessage ? _dAppReceiverContract : _receiver;
-        emit LibSwapper2.SendToken(_token, _amount, immediateReceiver);
+        emit LibSwapperV2.SendToken(_token, _amount, immediateReceiver);
 
-        if (_token == LibSwapper2.ETH) {
-            LibSwapper2._sendNative(immediateReceiver, _amount);
+        if (_token == LibSwapperV2.ETH) {
+            LibSwapperV2._sendNative(immediateReceiver, _amount);
         } else {
             SafeERC20.safeTransfer(IERC20(_token), immediateReceiver, _amount);
         }
@@ -506,7 +506,7 @@ library LibInterchain {
             } catch Error(string memory reason) {
                 emit CrossChainMessageCalled(_dAppReceiverContract, _token, _amount, processStatus, _dAppMessage, false, reason);
             } catch (bytes memory lowLevelData) {
-                emit CrossChainMessageCalled(_dAppReceiverContract, _token, _amount, processStatus, _dAppMessage, false, LibSwapper2._getRevertMsg(lowLevelData));
+                emit CrossChainMessageCalled(_dAppReceiverContract, _token, _amount, processStatus, _dAppMessage, false, LibSwapperV2._getRevertMsg(lowLevelData));
             }
         }
     }

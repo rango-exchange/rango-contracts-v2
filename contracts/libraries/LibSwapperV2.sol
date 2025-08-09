@@ -10,10 +10,10 @@ import "../interfaces/IRango2.sol";
 /// @title BaseSwapper
 /// @author 0xiden
 /// @notice library to provide swap functionality
-library LibSwapper2 {
+library LibSwapperV2 {
 
     bytes32 internal constant BASE_SWAPPER_NAMESPACE = keccak256("exchange.rango.library.swapper");
-
+    bytes4 internal constant ERROR_STRING_SELECTOR = bytes4(keccak256("Error(string)"));
     address payable constant ETH = payable(0x0000000000000000000000000000000000000000);
 
     struct BaseSwapperStorage {
@@ -364,6 +364,7 @@ library LibSwapper2 {
         uint256 affiliatorsLength = _affiliateFees.length;
         for (uint256 i = 0; i < affiliatorsLength;) {
             require(_affiliateFees[i].affiliatorAddress != address(0), "Invalid affiliate address");
+            require(_affiliateFees[i].amount > 0, "Affiliate fee amount must be greater than zero");
 
             totalAffiliateFee += _affiliateFees[i].amount;
             unchecked {
@@ -455,7 +456,7 @@ library LibSwapper2 {
     ) internal {
         BaseSwapperStorage storage baseStorage = getBaseSwapperStorage();
         emit SendToken(_token, _amount, _receiver);
-        bool nativeOut = _token == LibSwapper2.ETH;
+        bool nativeOut = _token == ETH;
 
         if (_withdraw) {
             require(_token == baseStorage.WETH, "token mismatch");
@@ -502,7 +503,7 @@ library LibSwapper2 {
         }
 
         //selector for Error(string), works for (require or revert statement with string)
-        if (selector == 0x08c379a0) { 
+        if (selector == ERROR_STRING_SELECTOR) { 
             return abi.decode(_returnData, (string));
         // All that remains is the revert string
         }
@@ -523,8 +524,6 @@ library LibSwapper2 {
         for (uint256 i = 0; i < callsLength; i++) {
             token = calls[i].swapToToken;
             balancesList[i] = getBalanceOf(token);
-            if (token == ETH)
-                balancesList[i] -= msg.value;
         }
         return balancesList;
     }

@@ -27,7 +27,8 @@ interface ICCTPReciever {
         bytes messageBody;
     }
 
-    function callRecieveMessage(bytes calldata message, bytes calldata signature, address _mintToken) external;
+    function callRecieveMessage(bytes calldata message, bytes calldata signature) external;
+    
     function processMessageAndTransferUSDC(
         bytes calldata message,
         bytes calldata signature,
