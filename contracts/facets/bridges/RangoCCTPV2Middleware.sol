@@ -34,6 +34,9 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
     /// Errors ///
     error RangoCCTPV2Middleware__InvalidMessageTransmitterV2Address();
     error RangoCCTPV2Middleware__MessageTransmissionFailed();
+    error RangoCCTPV2Middleware__ReceivedAmountMismatch(
+        address mintToken, uint256 expectedAmount, uint256 actualAmount
+    );
 
     function initCCTPV2Middleware(address _owner, address _messageTransmitterV2, address _tokenMinterV2, address whitelistsContract)
         external
@@ -63,11 +66,7 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
         onlyWhenNotPaused
     {
         CCTPV2Storage storage s = getCCTPV2Storage();
-        // Call the receiveMessage function of the message transmitter
-        if (!IMessageTransmitterV2(s.messageTransmitterV2).receiveMessage(message, signature)) {
-            revert RangoCCTPV2Middleware__MessageTransmissionFailed();
-        }
-
+        
         CCTPV2Message memory decodedMessage = decodeMessage(message);
         CCTPV2MessageBody memory decodedMessageBody = this.decodeMessageBody(decodedMessage.messageBody);
 
@@ -75,6 +74,19 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
         address mintToken = ICCTPTokenMinter(s.tokenMinter).getLocalToken(
             decodedMessage.sourceDomain, decodedMessageBody.burnToken
         );
+
+        uint256 balanceBefore = IERC20(mintToken).balanceOf(address(this));
+        // Call the receiveMessage function of the message transmitter
+        if (!IMessageTransmitterV2(s.messageTransmitterV2).receiveMessage(message, signature)) {
+            revert RangoCCTPV2Middleware__MessageTransmissionFailed();
+        }
+        uint256 balanceAfter = IERC20(mintToken).balanceOf(address(this));
+
+        if (balanceAfter < balanceBefore + decodedMessageBody.amount - decodedMessageBody.feeExecuted) {
+            revert RangoCCTPV2Middleware__ReceivedAmountMismatch(
+                mintToken, balanceBefore + decodedMessageBody.amount - decodedMessageBody.feeExecuted, balanceAfter
+            );
+        }
 
         Interchain.RangoInterChainMessage memory m =
             abi.decode((decodedMessageBody.hookData), (Interchain.RangoInterChainMessage));
