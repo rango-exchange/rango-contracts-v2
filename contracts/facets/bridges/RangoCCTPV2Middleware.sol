@@ -9,13 +9,13 @@ import "../../utils/ReentrancyGuard.sol";
 import "../../interfaces/IMessageTransmitterV2.sol";
 import "../../utils/LibTransform.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ICCTPReciever} from "../../interfaces/ICCTPReciever.sol";
+import {ICCTPReceiver} from "../../interfaces/ICCTPReceiver.sol";
 import {ICCTPTokenMinter} from "../../interfaces/ICCTPTokenMinter.sol";
 
 /// @title The contract that receives interchain messages
 /// @author Sunny
 /// @dev This is not a facet, its deployed separately.
-contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, RangoBaseInterchainMiddlewareV2 {
+contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReceiver, RangoBaseInterchainMiddlewareV2 {
     using LibTransform for bytes32;
 
     /// Storage ///
@@ -129,7 +129,7 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
     function decodeMessageBody(bytes calldata messageBody)
         public
         pure
-        returns (ICCTPReciever.CCTPV2MessageBody memory decodedMessageBody)
+        returns (ICCTPReceiver.CCTPV2MessageBody memory decodedMessageBody)
     {
         assembly {
             // Allocate memory for the struct (8 fixed fields = 8 * 32 = 256 bytes) + 1 for dynamic
@@ -189,7 +189,7 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
     function decodeMessage(bytes calldata message)
         public
         pure
-        returns (ICCTPReciever.CCTPV2Message memory decodedMessage)
+        returns (ICCTPReceiver.CCTPV2Message memory decodedMessage)
     {
         assembly {
             // Allocate memory for struct (9 fixed fields + 1 dynamic = 320 bytes = 0x140)

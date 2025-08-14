@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-interface ICCTPReciever {
+interface ICCTPReceiver {
     struct CCTPV2MessageBody {
         uint32 version;
         bytes32 burnToken;
