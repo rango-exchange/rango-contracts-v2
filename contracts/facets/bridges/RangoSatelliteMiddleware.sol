@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-import "../../interfaces/IRango.sol";
 import "../../interfaces/IAxelarExecutable.sol";
 import "../../interfaces/IUniswapV2.sol";
 import "../../interfaces/IRangoMessageReceiver.sol";
 import "../../interfaces/Interchain.sol";
-import "../../libraries/LibInterchain.sol";
-import "../base/RangoBaseInterchainMiddleware.sol";
+import "../../libraries/LibInterchainV2.sol";
+import "../base/RangoBaseInterchainMiddlewareV2.sol";
 import "../../utils/ReentrancyGuard.sol";
 
 /// @title The contract that receives interchain messages
 /// @author George
 /// @dev This is not a facet, its deployed separately. The refund is handled by whitelisting the payload hash.
-contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable, RangoBaseInterchainMiddleware {
+contract RangoSatelliteMiddleware is IRango2, ReentrancyGuard, IAxelarExecutable, RangoBaseInterchainMiddlewareV2 {
     /// Storage ///
     bytes32 internal constant SATELLITE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.satellite");
 
@@ -98,8 +97,8 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
         bytes32 refundHash = encodeDataToBytes32(commandId, sourceChain, sourceAddress, payloadHash, tokenSymbol, amount);
         if (s.refundHashes[refundHash] == true) {
             address refundAddr = s.refundHashAddresses[refundHash];
-            address requestId = LibSwapper.ETH;
-            address originalSender = LibSwapper.ETH;
+            address requestId = LibSwapperV2.ETH;
+            address originalSender = LibSwapperV2.ETH;
             uint16 dAppTag;
             if (refundAddr == address(0)) {
                 Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));
@@ -140,7 +139,7 @@ contract RangoSatelliteMiddleware is IRango, ReentrancyGuard, IAxelarExecutable,
         Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));
         SatelliteStorage storage s = getSatelliteStorage();
         address _token = IAxelarGateway(s.gatewayAddress).tokenAddresses(tokenSymbol);
-        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(_token, amount, m);
+        (address receivedToken, uint dstAmount, IRango2.CrossChainOperationStatus status) = LibInterchainV2.handleDestinationMessage(_token, amount, m);
 
         emit RangoBridgeCompleted(
             m.requestId,

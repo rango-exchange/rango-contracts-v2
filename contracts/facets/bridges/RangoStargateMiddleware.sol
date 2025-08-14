@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-import "../../libraries/LibInterchain.sol";
+import "../../libraries/LibInterchainV2.sol";
 import "../../interfaces/IStargateReceiver.sol";
 import "../../interfaces/IStargateV2.sol";
 import "../../utils/ReentrancyGuard.sol";
-import "../base/RangoBaseInterchainMiddleware.sol";
+import "../base/RangoBaseInterchainMiddlewareV2.sol";
 
 /// @title The middleware contract that handles Rango's receive messages from stargate.
 /// @author George
 /// @dev Note that this is not a facet and should be deployed separately.
-contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, RangoBaseInterchainMiddleware {
+contract RangoStargateMiddleware is ReentrancyGuard, IRango2, IStargateReceiver, RangoBaseInterchainMiddlewareV2 {
     /// Storage ///
     bytes32 internal constant STARGATE_MIDDLEWARE_NAMESPACE = keccak256("exchange.rango.middleware.stargate");
     
@@ -95,7 +95,7 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         Interchain.RangoInterChainMessage memory m = abi.decode((rangoMessageBytes), (Interchain.RangoInterChainMessage));
         uint256 amountLD = uint256(bytes32(_message[SRC_EID_OFFSET:AMOUNT_LD_OFFSET]));
 
-        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(bridgeToken, amountLD, m);
+        (address receivedToken, uint dstAmount, IRango2.CrossChainOperationStatus status) = LibInterchainV2.handleDestinationMessage(bridgeToken, amountLD, m);
 
         emit RangoBridgeCompleted(
             m.requestId,
@@ -127,9 +127,9 @@ contract RangoStargateMiddleware is ReentrancyGuard, IRango, IStargateReceiver, 
         Interchain.RangoInterChainMessage memory m = abi.decode((payload), (Interchain.RangoInterChainMessage));
         address bridgeToken = _token;
         if (_token == getRangoStargateMiddlewareStorage().sgeth) {
-            bridgeToken = LibSwapper.ETH;
+            bridgeToken = LibSwapperV2.ETH;
         }
-        (address receivedToken, uint dstAmount, IRango.CrossChainOperationStatus status) = LibInterchain.handleDestinationMessage(bridgeToken, amountLD, m);
+        (address receivedToken, uint dstAmount, IRango2.CrossChainOperationStatus status) = LibInterchainV2.handleDestinationMessage(bridgeToken, amountLD, m);
 
         emit RangoBridgeCompleted(
             m.requestId,
