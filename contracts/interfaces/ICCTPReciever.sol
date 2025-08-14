@@ -27,7 +27,7 @@ interface ICCTPReciever {
         bytes messageBody;
     }
 
-    function callRecieveMessage(bytes calldata message, bytes calldata signature) external;
+    function callReceiveMessage(bytes calldata message, bytes calldata signature) external;
     
     function processMessageAndTransferUSDC(
         bytes calldata message,

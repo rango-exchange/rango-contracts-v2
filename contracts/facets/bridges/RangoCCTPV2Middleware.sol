@@ -60,7 +60,7 @@ contract RangoCCTPV2Middleware is IRango2, ReentrancyGuard, ICCTPReciever, Rango
     ///      https://iris-api.circle.com/v2/messages/1/?transactionHash=inboundTxHash
     /// @param message The message payload to be sent.
     /// @param signature The attestation signature provided by the CCTP Iris API.
-    function callRecieveMessage(bytes calldata message, bytes calldata signature)
+    function callReceiveMessage(bytes calldata message, bytes calldata signature)
         external
         nonReentrant
         onlyWhenNotPaused
