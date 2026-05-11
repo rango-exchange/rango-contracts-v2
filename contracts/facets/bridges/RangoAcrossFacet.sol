@@ -2,9 +2,9 @@
 pragma solidity 0.8.25;
 
 import "../../interfaces/IRangoAcross.sol";
-import "../../interfaces/IRango.sol";
+import "../../interfaces/IRango2.sol";
 import "../../utils/ReentrancyGuard.sol";
-import "../../libraries/LibSwapper.sol";
+import "../../libraries/LibSwapperV2.sol";
 import "../../libraries/LibDiamond.sol";
 import "../../interfaces/Interchain.sol";
 import "../../libraries/LibPausable.sol";
@@ -12,9 +12,10 @@ import "../../libraries/LibPausable.sol";
 /// @title The root contract that handles Rango's interaction with Across bridge
 /// @author Thinking Particle & AMA
 /// @dev This is deployed as a facet for RangoDiamond
-contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
+contract RangoAcrossFacet is IRango2, ReentrancyGuard, IRangoAcross {
     /// Storage ///
     bytes32 internal constant ACROSS_NAMESPACE = keccak256("exchange.rango.facets.across");
+    uint256 constant BASE_PCT = 1e18;
 
     struct AcrossStorage {
         /// @notice List of whitelisted Across spoke pools in the current chain
@@ -80,12 +81,12 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
     /// @param calls The list of DEX calls, if this list is empty, it means that there is no DEX call and we are only bridging
     /// @param bridgeRequest required data for the bridging step, including the destination chain and recipient wallet address
     function acrossSwapAndBridge(
-        LibSwapper.SwapRequest memory request,
-        LibSwapper.Call[] calldata calls,
+        LibSwapperV2.SwapRequest memory request,
+        LibSwapperV2.Call[] calldata calls,
         AcrossBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         LibPausable.enforceNotPaused();
-        uint out = LibSwapper.onChainSwapsPreBridge(request, calls, 0);
+        uint out = LibSwapperV2.onChainSwapsPreBridge(request, calls, 0);
         doAcrossBridge(bridgeRequest, request.toToken, out);
 
         // event emission
@@ -107,19 +108,19 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
     /// @dev request.toToken can be address(0) for native deposits and will be replaced in doAcrossBridge
     function acrossBridge(
         AcrossBridgeRequest memory request,
-        IRango.RangoBridgeRequest memory bridgeRequest
+        IRango2.RangoBridgeRequest memory bridgeRequest
     ) external payable nonReentrant {
         LibPausable.enforceNotPaused();
         address token = bridgeRequest.token;
-        uint amountWithFee = bridgeRequest.amount + LibSwapper.sumFees(bridgeRequest);
+        uint amountWithFee = bridgeRequest.amount + LibSwapperV2.sumFees(bridgeRequest);
         // transfer tokens if necessary
-        if (token == LibSwapper.ETH) {
+        if (token == LibSwapperV2.ETH) {
             require(
                 msg.value >= amountWithFee, "Insufficient ETH sent for bridging and fees");
         } else {
             SafeERC20.safeTransferFrom(IERC20(token), msg.sender, address(this), amountWithFee);
         }
-        LibSwapper.collectFees(bridgeRequest);
+        LibSwapperV2.collectFees(bridgeRequest);
         doAcrossBridge(request, token, bridgeRequest.amount);
 
         bool hasInterchainMessage = request.message.length > 0;
@@ -155,25 +156,25 @@ contract RangoAcrossFacet is IRango, ReentrancyGuard, IRangoAcross {
     ) internal {
         AcrossStorage storage s = getAcrossStorage();
         require(s.acrossSpokePools[request.spokePoolAddress], "Requested spokePool address not whitelisted");
-        if (token != LibSwapper.ETH)
-            LibSwapper.approveMax(token, request.spokePoolAddress, amount);
+        if (token != LibSwapperV2.ETH)
+            LibSwapperV2.approveMax(token, request.spokePoolAddress, amount);
 
         address bridgeToken = token;
-        if (token == LibSwapper.ETH) bridgeToken = LibSwapper.getBaseSwapperStorage().WETH;
-
+        if (token == LibSwapperV2.ETH) bridgeToken = LibSwapperV2.getBaseSwapperStorage().WETH;
+        uint256 amountOutInDestinationDecimals = amount * request.decimalsAdjustedTotalRelayFeePct / BASE_PCT;
         bytes memory acrossCallData = encodeWithSignature(
-            request.depositor == LibSwapper.ETH ? msg.sender : request.depositor,
+            request.depositor == LibSwapperV2.ETH ? msg.sender : request.depositor,
             bridgeToken,
             amount,
-            amount - request.totalRelayFeeAmount, // TODO: Test if this is correct and works
+            amountOutInDestinationDecimals, // TODO: Test if this is correct and works
             request
         );
 
         bytes memory callData = concat(acrossCallData, s.acrossRewardBytes);
 
-        (bool success, bytes memory ret) = request.spokePoolAddress.call{value: token == LibSwapper.ETH ? amount : 0}(callData);
+        (bool success, bytes memory ret) = request.spokePoolAddress.call{value: token == LibSwapperV2.ETH ? amount : 0}(callData);
         if (!success)
-            revert(LibSwapper._getRevertMsg(ret));
+            revert(LibSwapperV2._getRevertMsg(ret));
 
     }
 
