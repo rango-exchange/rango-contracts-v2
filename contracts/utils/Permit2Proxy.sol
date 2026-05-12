@@ -19,17 +19,17 @@ contract Permit2Proxy is Ownable, EIP712 {
     error InvalidTokenAddress();
     error InvalidCalldataSignature();
 
-    IPermit2 public s_permit2;
-    address public immutable i_rangoDiamond;
+    IPermit2 public permit2;
+    address public immutable rangoDiamond;
 
-    string internal constant _WITNESS_TYPE_STRING =
+    string internal constant WITNESS_TYPE_STRING =
         "WitnessData witness)TokenPermissions(address token,uint256 amount)WitnessData(address diamondAddress,bytes32 diamondCalldata)";
-    bytes32 internal constant _WITNESS_STRUCT_TYPEHASH =
+    bytes32 internal constant WITNESS_STRUCT_TYPEHASH =
         keccak256("WitnessData(address diamondAddress,bytes32 diamondCalldata)");
-    bytes32 internal constant _FULL_WITNESS_TYPEHASH =
-        keccak256(abi.encodePacked(PermitHash._PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB, _WITNESS_TYPE_STRING));
+    bytes32 internal constant FULL_WITNESS_TYPEHASH =
+        keccak256(abi.encodePacked(PermitHash._PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB, WITNESS_TYPE_STRING));
 
-    bytes32 internal constant _CALLDATA_WITNESS_TYPEHASH =
+    bytes32 internal constant CALLDATA_WITNESS_TYPEHASH =
         keccak256("CalldataWitness(address owner,address token,uint256 amount,bytes32 diamondCalldataHash)");
 
     struct WitnessData {
@@ -38,8 +38,8 @@ contract Permit2Proxy is Ownable, EIP712 {
     }
 
     constructor(address _permit2Address, address _diamondAddress, address _owner) Ownable(_owner) EIP712("Permit2Proxy", "1") {
-        s_permit2 = IPermit2(_permit2Address);
-        i_rangoDiamond = _diamondAddress;
+        permit2 = IPermit2(_permit2Address);
+        rangoDiamond = _diamondAddress;
     }
 
     function permit2WitnessTransferAndCallDiamond(
@@ -55,18 +55,18 @@ contract Permit2Proxy is Ownable, EIP712 {
             });
 
         WitnessData memory witnessData = WitnessData({
-            diamondAddress: i_rangoDiamond,
+            diamondAddress: rangoDiamond,
             diamondCalldata: keccak256(diamondCalldata)
         });
 
         bytes32 witness = _hashWitnessData(witnessData);
 
-        s_permit2.permitWitnessTransferFrom(
+        permit2.permitWitnessTransferFrom(
             permit,
             transferDetails,
             signer,
             witness,
-            _WITNESS_TYPE_STRING,
+            WITNESS_TYPE_STRING,
             signature
         );
 
@@ -90,7 +90,7 @@ contract Permit2Proxy is Ownable, EIP712 {
 
         // Verify the owner signed the calldata
         bytes32 structHash = keccak256(abi.encode(
-            _CALLDATA_WITNESS_TYPEHASH,
+            CALLDATA_WITNESS_TYPEHASH,
             owner,
             token,
             amount,
@@ -126,15 +126,15 @@ contract Permit2Proxy is Ownable, EIP712 {
 
     function _maxApproveDiamond(address token) internal {
         if (token == address(0)) return;
-        SafeERC20.forceApprove(IERC20(token), i_rangoDiamond, type(uint256).max);
+        SafeERC20.forceApprove(IERC20(token), rangoDiamond, type(uint256).max);
     }
 
     function _hashWitnessData(WitnessData memory witnessData) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_WITNESS_STRUCT_TYPEHASH, witnessData.diamondAddress, witnessData.diamondCalldata));
+        return keccak256(abi.encode(WITNESS_STRUCT_TYPEHASH, witnessData.diamondAddress, witnessData.diamondCalldata));
     }
 
     function _callRangoDiamond(bytes memory data) internal returns (bytes memory) {
-        (bool success, bytes memory result) = i_rangoDiamond.call{value: msg.value}(data);
+        (bool success, bytes memory result) = rangoDiamond.call{value: msg.value}(data);
         if (!success) {
             revert CallToDiamondFailed(result);
         }
@@ -142,10 +142,10 @@ contract Permit2Proxy is Ownable, EIP712 {
     }
 
     function getWitnessTypehash() external pure returns (bytes32) {
-        return _FULL_WITNESS_TYPEHASH;
+        return FULL_WITNESS_TYPEHASH;
     }
 
     function getWitnessTypeString() external pure returns (string memory) {
-        return _WITNESS_TYPE_STRING;
+        return WITNESS_TYPE_STRING;
     }
 }
