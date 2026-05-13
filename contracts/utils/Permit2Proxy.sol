@@ -32,6 +32,9 @@ contract Permit2Proxy is Ownable, EIP712 {
     bytes32 internal constant CALLDATA_WITNESS_TYPEHASH =
         keccak256("CalldataWitness(address owner,address token,uint256 amount,bytes32 diamondCalldataHash)");
 
+    bytes32 internal constant TOKEN_PERMISSIONS_TYPEHASH =
+        keccak256("TokenPermissions(address token,uint256 amount)");
+
     struct WitnessData {
         address diamondAddress;
         bytes32 diamondCalldata;
@@ -147,5 +150,50 @@ contract Permit2Proxy is Ownable, EIP712 {
 
     function getWitnessTypeString() external pure returns (string memory) {
         return WITNESS_TYPE_STRING;
+    }
+
+    /// @notice EIP-712 digest the user must sign for `permit2WitnessTransferAndCallDiamond`.
+    /// @dev Domain is the Permit2 contract's domain. Spender is bound to this proxy.
+    function hashPermit2WitnessDigest(
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata diamondCalldata
+    ) external view returns (bytes32) {
+        bytes32 tokenPermissionsHash = keccak256(abi.encode(
+            TOKEN_PERMISSIONS_TYPEHASH,
+            permit.permitted.token,
+            permit.permitted.amount
+        ));
+        bytes32 witness = _hashWitnessData(WitnessData({
+            diamondAddress: rangoDiamond,
+            diamondCalldata: keccak256(diamondCalldata)
+        }));
+        bytes32 structHash = keccak256(abi.encode(
+            FULL_WITNESS_TYPEHASH,
+            tokenPermissionsHash,
+            address(this),
+            permit.nonce,
+            permit.deadline,
+            witness
+        ));
+        return keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), structHash));
+    }
+
+    /// @notice EIP-712 digest the user must sign as `calldataSignature` for `permitAndCallDiamond`.
+    /// @dev Domain is this proxy's EIP-712 domain. Does NOT cover the token's EIP-2612 permit
+    ///      (that signature uses the token's own domain and must be produced separately).
+    function hashCalldataWitnessDigest(
+        address owner,
+        address token,
+        uint256 amount,
+        bytes calldata diamondCalldata
+    ) external view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(
+            CALLDATA_WITNESS_TYPEHASH,
+            owner,
+            token,
+            amount,
+            keccak256(diamondCalldata)
+        ));
+        return _hashTypedDataV4(structHash);
     }
 }
