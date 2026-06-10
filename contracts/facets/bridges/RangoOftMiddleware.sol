@@ -17,11 +17,20 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
     uint8 private constant AMOUNT_LD_OFFSET = 44;
     uint8 private constant COMPOSE_FROM_OFFSET = 76; // OFTComposeMsgCodec
 
+    /// @notice An OApp (OFT contract) paired with the ERC20 it is authorized to deliver on this chain.
+    /// @dev For a native OFT, `token` equals the OApp itself; for an OFT adapter, `token` is the
+    ///      wrapped ERC20. This binding is what prevents a whitelisted low-value OApp from being
+    ///      used to operate on an arbitrary (high-value) token the contract may hold.
+    struct OappTokenPair {
+        address oApp;
+        address token;
+    }
+
     struct RangoOftMiddlewareStorage {
         address oftEndpoint;
-        // oft tokens that are whitelisted to be used with this middleware
-        //q? do we need to whitelist tokens? or can we receive message from any oapp? 
-        mapping(address => bool) whitelistedOapps; 
+        // whitelisted OApps mapped to the single ERC20 each one is allowed to deliver.
+        // address(0) => the OApp is not whitelisted.
+        mapping(address => address) whitelistedOapps;
     }
 
     /// Events
@@ -30,8 +39,8 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
     /// @param newAddress The new endpoint address
     event OftEndpointAddressUpdated(address oldAddress, address newAddress);
     /// @notice Emits when OApps are whitelisted
-    /// @param oapps The list of OApp addresses that were whitelisted
-    event OappsWhitelisted(address[] oapps);
+    /// @param oapps The list of OApp/token pairs that were whitelisted
+    event OappsWhitelisted(OappTokenPair[] oapps);
     /// @notice Emits when OApps are removed from whitelist
     /// @param oapps The list of OApp addresses that were removed
     event OappsRemoved(address[] oapps);
@@ -39,7 +48,7 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
     function initOftMiddleware(
         address _owner,
         address _oftEndpoint,
-        address[] memory _whitelistedOapps,
+        OappTokenPair[] memory _whitelistedOapps,
         address _whitelistsContract
     ) external onlyOwner {
         initBaseMiddleware(_owner, _whitelistsContract);
@@ -51,7 +60,7 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
         updateOftEndpointInternal(newEndpoint);
     }
 
-    function addWhitelistedOapps(address[] memory newWhitelistedOapps) external onlyOwner {
+    function addWhitelistedOapps(OappTokenPair[] memory newWhitelistedOapps) external onlyOwner {
         addWhitelistedOappsInternal(newWhitelistedOapps);
     }
 
@@ -72,19 +81,15 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
         bytes calldata /* _extraData */
     ) external payable override onlyWhenNotPaused nonReentrant {
         RangoOftMiddlewareStorage storage s = getRangoOftMiddlewareStorage();
-        // Ensure the composed message comes from the correct OApp.
-        require(s.whitelistedOapps[_oApp], "ComposedReceiver: Invalid OApp");
+        
+        address bridgeToken = s.whitelistedOapps[_oApp];
+        require(bridgeToken != address(0), "ComposedReceiver: Invalid OApp");
         require(msg.sender == s.oftEndpoint, "ComposedReceiver: Unauthorized sender");
-        require(s.oftEndpoint != address(0), "OFT endpoint not initialized");
         // Validate message length before slicing
         require(_message.length >= COMPOSE_FROM_OFFSET, "Message too short");
-        
+
         bytes calldata rangoMessageBytes = _message[COMPOSE_FROM_OFFSET:];
         Interchain.RangoInterChainMessage memory m = abi.decode((rangoMessageBytes), (Interchain.RangoInterChainMessage));
-        
-        //@dev using bridgeRealOutput to get the received token address is safe, because ETH (native) or WETH(weth) are not OFTs in any network.
-        address bridgeToken = m.bridgeRealOutput;
-        require(bridgeToken != address(0), "Invalid bridge token address");
         uint256 amountLD = uint256(bytes32(_message[SRC_EID_OFFSET:AMOUNT_LD_OFFSET]));
 
         (address receivedToken, uint dstAmount, IRango2.CrossChainOperationStatus status) = LibInterchainV2.handleDestinationMessage(bridgeToken, amountLD, m);
@@ -100,6 +105,13 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
         );
     }
 
+    /// @notice Returns the ERC20 a given OApp is whitelisted to deliver, or address(0) if not whitelisted.
+    /// @param oApp The OApp (OFT contract) address
+    /// @return the ERC20 token bound to the OApp
+    function getWhitelistedOappToken(address oApp) external view returns (address) {
+        return getRangoOftMiddlewareStorage().whitelistedOapps[oApp];
+    }
+
     /// Private and Internal
     function updateOftEndpointInternal(address newEndpoint) private {
         require(newEndpoint != address(0), "Invalid OFT Endpoint");
@@ -109,12 +121,13 @@ contract RangoOftMiddleware is ReentrancyGuard, IRango2, IOAppComposer, RangoBas
         emit OftEndpointAddressUpdated(oldEndpoint, newEndpoint);
     }
 
-    function addWhitelistedOappsInternal(address[] memory newWhitelistedOapps) private {
+    function addWhitelistedOappsInternal(OappTokenPair[] memory newWhitelistedOapps) private {
         if (newWhitelistedOapps.length == 0) return;
         RangoOftMiddlewareStorage storage s = getRangoOftMiddlewareStorage();
         for (uint i = 0; i < newWhitelistedOapps.length; i++) {
-            require(newWhitelistedOapps[i] != address(0), "Invalid OApp Address");
-            s.whitelistedOapps[newWhitelistedOapps[i]] = true;
+            require(newWhitelistedOapps[i].oApp != address(0), "Invalid OApp Address");
+            require(newWhitelistedOapps[i].token != address(0), "Invalid OApp Token");
+            s.whitelistedOapps[newWhitelistedOapps[i].oApp] = newWhitelistedOapps[i].token;
         }
         emit OappsWhitelisted(newWhitelistedOapps);
     }
