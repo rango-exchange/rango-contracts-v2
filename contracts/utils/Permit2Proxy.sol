@@ -18,9 +18,14 @@ contract Permit2Proxy is Ownable, EIP712 {
     error InvalidRecipient();
     error InvalidTokenAddress();
     error InvalidCalldataSignature();
+    error SignatureExpired();
 
     IPermit2 public permit2;
     address public immutable rangoDiamond;
+
+    /// @notice Per-owner sequential nonce consumed by `permitAndCallDiamond` calldata signatures.
+    /// @dev Bound into the signed digest to prevent replay of a `calldataSignature`.
+    mapping(address => uint256) public nonces;
 
     string internal constant WITNESS_TYPE_STRING =
         "WitnessData witness)TokenPermissions(address token,uint256 amount)WitnessData(address diamondAddress,bytes32 diamondCalldata)";
@@ -30,7 +35,7 @@ contract Permit2Proxy is Ownable, EIP712 {
         keccak256(abi.encodePacked(PermitHash._PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB, WITNESS_TYPE_STRING));
 
     bytes32 internal constant CALLDATA_WITNESS_TYPEHASH =
-        keccak256("CalldataWitness(address owner,address token,uint256 amount,bytes32 diamondCalldataHash)");
+        keccak256("CalldataWitness(address owner,address token,uint256 amount,bytes32 diamondCalldataHash,uint256 nonce,uint256 deadline)");
 
     bytes32 internal constant TOKEN_PERMISSIONS_TYPEHASH =
         keccak256("TokenPermissions(address token,uint256 amount)");
@@ -73,9 +78,11 @@ contract Permit2Proxy is Ownable, EIP712 {
             signature
         );
 
-        _maxApproveDiamond(permit.permitted.token);
+        _setDiamondAllowance(permit.permitted.token, permit.permitted.amount);
+        bytes memory result = _callRangoDiamond(diamondCalldata);
+        _setDiamondAllowance(permit.permitted.token, 0);
 
-        return _callRangoDiamond(diamondCalldata);
+        return result;
     }
 
     function permitAndCallDiamond(
@@ -90,18 +97,23 @@ contract Permit2Proxy is Ownable, EIP712 {
         bytes calldata calldataSignature
     ) external payable returns (bytes memory) {
         if (token == address(0)) revert InvalidTokenAddress();
+        if (block.timestamp > deadline) revert SignatureExpired();
 
-        // Verify the owner signed the calldata
+        uint256 nonce = nonces[owner];
         bytes32 structHash = keccak256(abi.encode(
             CALLDATA_WITNESS_TYPEHASH,
             owner,
             token,
             amount,
-            keccak256(diamondCalldata)
+            keccak256(diamondCalldata),
+            nonce,
+            deadline
         ));
         bytes32 digest = _hashTypedDataV4(structHash);
         address recovered = ECDSA.recover(digest, calldataSignature);
         if (recovered != owner) revert InvalidCalldataSignature();
+
+        nonces[owner] = nonce + 1;
 
         // Execute permit (skip if allowance already sufficient)
         IERC20 erc20 = IERC20(token);
@@ -111,9 +123,11 @@ contract Permit2Proxy is Ownable, EIP712 {
 
         erc20.safeTransferFrom(owner, address(this), amount);
 
-        _maxApproveDiamond(token);
+        _setDiamondAllowance(token, amount);
+        bytes memory result = _callRangoDiamond(diamondCalldata);
+        _setDiamondAllowance(token, 0);
 
-        return _callRangoDiamond(diamondCalldata);
+        return result;
     }
 
     function rescueFunds(address token, address recipient, uint256 amount) external onlyOwner {
@@ -127,9 +141,12 @@ contract Permit2Proxy is Ownable, EIP712 {
         }
     }
 
-    function _maxApproveDiamond(address token) internal {
-        if (token == address(0)) return;
-        SafeERC20.forceApprove(IERC20(token), rangoDiamond, type(uint256).max);
+    /// @notice Set the diamond's allowance for `token` to exactly `amount`.
+    /// @dev Called with the swap amount before the diamond call and reset to 0 after, so the proxy
+    ///      never leaves a standing allowance the diamond could later use to pull tokens that were
+    ///      accidentally sent to (or left in) this proxy.
+    function _setDiamondAllowance(address token, uint256 amount) internal {
+        SafeERC20.forceApprove(IERC20(token), rangoDiamond, amount);
     }
 
     function _hashWitnessData(WitnessData memory witnessData) internal pure returns (bytes32) {
@@ -179,12 +196,14 @@ contract Permit2Proxy is Ownable, EIP712 {
     }
 
     /// @notice EIP-712 digest the user must sign as `calldataSignature` for `permitAndCallDiamond`.
-    /// @dev Domain is this proxy's EIP-712 domain. Does NOT cover the token's EIP-2612 permit
+    /// @dev Domain is this proxy's EIP-712 domain. Binds the owner's current `nonce` and the
+    ///      `deadline` for replay protection. Does NOT cover the token's EIP-2612 permit
     ///      (that signature uses the token's own domain and must be produced separately).
     function hashCalldataWitnessDigest(
         address owner,
         address token,
         uint256 amount,
+        uint256 deadline,
         bytes calldata diamondCalldata
     ) external view returns (bytes32) {
         bytes32 structHash = keccak256(abi.encode(
@@ -192,7 +211,9 @@ contract Permit2Proxy is Ownable, EIP712 {
             owner,
             token,
             amount,
-            keccak256(diamondCalldata)
+            keccak256(diamondCalldata),
+            nonces[owner],
+            deadline
         ));
         return _hashTypedDataV4(structHash);
     }
