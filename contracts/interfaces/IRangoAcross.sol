@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.25;
 
-import "../libraries/LibSwapper.sol";
-import "./IRango.sol";
+import "../libraries/LibSwapperV2.sol";
+import "./IRango2.sol";
 
 /// @title An interface to RangoAcross.sol contract to improve type hinting
 /// @author George
@@ -17,7 +17,7 @@ interface IRangoAcross {
     /// @param recipient Address to receive funds at on destination chain.
     /// @param originToken Token to lock into this contract to initiate deposit. Can be address(0)
     /// @param destinationChainId Denotes network where user will receive funds from SpokePool by a relayer.
-    /// @param totalRelayFeeAmount The amount of tokens that should be paid to the relayer as fee.
+    /// @param decimalsAdjustedTotalRelayFeePct A multiplier with decimal offset precision (source decimals - destination decimals) that when multiplied by the amount deposited gives the amount that will be received on destination chain.
     /// @param quoteTimestamp Timestamp used by relayers to compute this deposit's realizedLPFeePct which is paid to LP pool on HubPool.
     /// @param message message that will be passed to destination chain. Can be empty.
     struct AcrossBridgeRequest {
@@ -29,19 +29,19 @@ interface IRangoAcross {
         uint32 exclusivityDeadline;
         address recipient;
         uint256 destinationChainId;
-        uint256 totalRelayFeeAmount;
+        uint256 decimalsAdjustedTotalRelayFeePct;
         uint32 quoteTimestamp;
         bytes message;
     }
 
     function acrossSwapAndBridge(
-        LibSwapper.SwapRequest memory request,
-        LibSwapper.Call[] calldata calls,
+        LibSwapperV2.SwapRequest memory request,
+        LibSwapperV2.Call[] calldata calls,
         AcrossBridgeRequest memory bridgeRequest
     ) external payable;
 
     function acrossBridge(
         AcrossBridgeRequest memory request,
-        IRango.RangoBridgeRequest memory bridgeRequest
+        IRango2.RangoBridgeRequest memory bridgeRequest
     ) external payable;
 }
